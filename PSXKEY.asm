@@ -842,7 +842,7 @@ unlmsg   db "psxkey unloaded.",13,10,'$'
 cantmsg  db "psxkey: cannot unload (another TSR loaded after).",13,10,'$'
 noini    db "psxkey: .ini not found, no mapping.",13,10,'$'
 helptxt  db "PSXKEY - PSX Controller Driver for LPT / MS-DOS  by ottelo",13,10
-         db "  ottelo.jimdofree.com",13,10
+         db "  ottelo.jimdofree.com  (build ",VER,")",13,10
          db "Usage:",13,10
          db "  PSXKEY       install (reads PSXKEY.INI)",13,10
          db "  PSXKEY /U    unload",13,10
