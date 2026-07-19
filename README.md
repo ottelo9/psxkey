@@ -48,17 +48,22 @@ after PSXKEY (since the interrupt chain can no longer be safely unhooked).
 The default port base is `0x3BC` (LPT1 on the ThinkPad 380XD); it is configurable in the
 INI. The status register is at base + 1.
 
-| LPT pin              | Signal / bit         | PSX pad          |
-|----------------------|----------------------|------------------|
-| Pin 2  (D0, `0x01`)  | data out             | CMD              |
-| Pin 3  (D1, `0x02`)  | data out             | ATT (attention)  |
-| Pin 4  (D2, `0x04`)  | data out             | CLK (clock)      |
-| Pin 10 (Status bit6, `0x40`) | data in      | DATA             |
-| Pin 7-9 (D5-D7, `0xF0`, via diodes) | held high | +V (3.3–5 V supply) |
-| Pin 18-25            | ground               | GND              |
+| LPT pin              | Signal / bit         | PSX pad          | PSX pin |
+|----------------------|----------------------|------------------|---------|
+| Pin 2  (D0, `0x01`)  | data out             | CMD              | 2       |
+| Pin 3  (D1, `0x02`)  | data out             | ATT (attention)  | 6       |
+| Pin 4  (D2, `0x04`)  | data out             | CLK (clock)      | 7       |
+| Pin 10 (Status bit6, `0x40`) | data in      | DATA             | 1       |
+| Pin 7-9 (D5-D7, `0xF0`, via diodes) | held high | +V (3.3–5 V supply) | 5 |
+| Pin 18-25            | ground               | GND              | 4       |
 
-No clock resistor is needed — the driver bit-bangs the clock with its own delays, so clean
-edges are fine.
+<p align="center">
+  <img src="img/wiring.svg" alt="Wiring diagram: DB25 parallel port to PSX controller socket" width="820">
+</p>
+
+Looking into the PSX socket from the front, the pins run **9 on the left to 1 on the right**.
+Pins 3, 8 and 9 are not used. No clock resistor is needed — the driver bit-bangs the clock
+with its own delays, so clean edges are fine.
 
 ### Building the adapter
 
