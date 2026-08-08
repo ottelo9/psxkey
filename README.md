@@ -45,6 +45,8 @@ after PSXKEY (since the interrupt chain can no longer be safely unhooked).
 
 ## PSKEY PSX-LPT-Adapter/Converter
 I’m currently working on a ready2use adapter. I’ll then be putting it up for sale on eBay or similar sites.
+<img width="400" height="289" alt="image" src="https://github.com/user-attachments/assets/4f3fb4ec-7f5a-48d9-8701-6ea7d3fd2de1" />
+
 
 ## Hardware / LPT wiring (DB25 → PSX pad)
 
