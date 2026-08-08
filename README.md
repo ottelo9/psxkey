@@ -43,6 +43,9 @@ Double-loading is prevented via an INT 2Fh multiplex ID (`0xC9`). Unloading rest
 and INT 2Fh and frees the memory; it reports **"cannot unload"** if another TSR was loaded
 after PSXKEY (since the interrupt chain can no longer be safely unhooked).
 
+## PSKEY PSX-LPT-Adapter/Converter
+I’m currently working on a ready2use adapter. I’ll then be putting it up for sale on eBay or similar sites.
+
 ## Hardware / LPT wiring (DB25 → PSX pad)
 
 The default port base is `0x3BC` (LPT1 on the ThinkPad 380XD); it is configurable in the
