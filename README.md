@@ -43,6 +43,27 @@ Double-loading is prevented via an INT 2Fh multiplex ID (`0xC9`). Unloading rest
 and INT 2Fh and frees the memory; it reports **"cannot unload"** if another TSR was loaded
 after PSXKEY (since the interrupt chain can no longer be safely unhooked).
 
+### Startup output
+
+The driver prints its banner, the **full path of the INI it loaded** and that file's
+contents, so you can see at a glance which configuration is actually in effect:
+
+```text
+PSXKEY PSX Controller Driver for LPT and MS-DOS by ottelo (ottelo.jimdofree.com)
+build 26-08-28
+ini: C:\TOOLS\PSXKEY.INI
+[psx]
+port = 0x3BC
+box = a
+cross = x
+...
+```
+
+The listing is dumped from the same buffer the parser reads, so it shows what the driver
+really saw — not a separate copy. If no INI was found,
+`psxkey: PSXKEY.INI not found - created default.` is printed first, followed by the path
+and contents of the file that was just created.
+
 ## PSKEY PSX-LPT-Adapter/Converter
 I’m currently working on a ready2use adapter. I’ll then be putting it up for sale on eBay or similar sites.
 <img width="400" height="289" alt="image" src="https://github.com/user-attachments/assets/4f3fb4ec-7f5a-48d9-8701-6ea7d3fd2de1" />
@@ -94,6 +115,7 @@ on pins 7-9 feed the controller's supply voltage.
 
 The INI file has the same base name as the COM and is located via the PSP environment path.
 If it is missing, a default INI is created automatically.
+Both the path and the contents of the INI in effect are printed at startup.
 
 - Line format: `button = key`.
 - Lines starting with `[`, `;`, or `//` are ignored.
@@ -167,8 +189,11 @@ right = right
 - `int2f` — INT 2Fh multiplex handler.
 - `unload` — TSR removal.
 - `getini` — INI loading (including default-INI creation).
+- `showini` / `putsz` — startup dump of the INI path and contents (`putsz` prints an
+  ASCIIZ string, since DOS `AH=9` needs `$`-terminated ones).
 - Everything before the `install` label is resident; the TSR keep size is the `install`
-  offset in paragraphs.
+  offset in paragraphs. `showini` and `putsz` sit in the transient part, so the resident
+  footprint stays at 466 bytes / 30 paragraphs.
 
 ## Author
 

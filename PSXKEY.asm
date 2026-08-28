@@ -270,6 +270,9 @@ install:
     ; ---- not loaded ----
     cmp byte [wunload],0
     jne .notld
+    mov dx,okmsg              ; Banner zuerst, danach die INI-Ausgabe
+    mov ah,9
+    int 0x21
     call getini
     jnc .p
     mov dx,noini
@@ -278,11 +281,7 @@ install:
     jmp .hook
 .p:
     call parse
-    cmp byte [madedef],0
-    je .hook
-    mov dx,defmsg
-    mov ah,9
-    int 0x21
+    call showini
 .hook:
     mov ax,0x352F
     int 0x21
@@ -297,9 +296,6 @@ install:
     mov [oldint8+2],es
     mov dx,isr8
     mov ax,0x2508
-    int 0x21
-    mov dx,okmsg
-    mov ah,9
     int 0x21
     mov dx,install
     add dx,15
@@ -400,6 +396,47 @@ parsecmd:
     inc si
     jmp .p
 .d:
+    ret
+
+putsz:                   ; ds:si -> ASCIIZ, ueber DOS ausgeben
+    push ax
+    push dx
+    push si
+.l:
+    mov al,[si]
+    or al,al
+    jz .d
+    mov dl,al
+    mov ah,2
+    int 0x21
+    inc si
+    jmp .l
+.d:
+    pop si
+    pop dx
+    pop ax
+    ret
+
+showini:                 ; Pfad und Inhalt der geladenen INI ausgeben
+    cmp byte [madedef],0
+    je .path
+    mov dx,defmsg        ; nur wenn gerade neu angelegt
+    mov ah,9
+    int 0x21
+.path:
+    mov dx,inimsg
+    mov ah,9
+    int 0x21
+    mov si,inifile
+    call putsz
+    mov dx,crlf
+    mov ah,9
+    int 0x21
+    mov si,filebuf
+    call putsz
+    mov dx,crlf
+    mov ah,9
+    int 0x21
     ret
 
 getini:
@@ -863,6 +900,8 @@ helptxt  db "PSXKEY - PSX Controller Driver for LPT / MS-DOS  by ottelo",13,10
 
 madedef db 0
 defmsg  db "psxkey: PSXKEY.INI not found - created default.",13,10,'$'
+inimsg  db "ini: ",'$'
+crlf    db 13,10,'$'
 defini:
     db "[psx]",13,10
     db "port = 0x3BC",13,10
