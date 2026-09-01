@@ -4,11 +4,13 @@
   <img src="img/psxkey_converter.jpg" alt="PSXKEY adapter board plugged into the parallel port of a laptop" width="600">
 </p>
 
+<a href="https://ottelo9.github.io/psxkey/">HELP PAGE in German and English</a>
+
 PSXKEY is a small resident driver (TSR) for MS-DOS that reads a **PlayStation (PSX/PS1)
 controller through the parallel (LPT) port** and injects the mapped buttons as **keyboard
 keystrokes**. This lets you play DOS games with a PSX gamepad.
 
-Originally built and tested on an **IBM ThinkPad 380XD** running MS-DOS (Windows 98 DOS,
+Originally built and tested on an **IBM ThinkPad 380XD** and **Toshiba Satellite Pro 4600** running MS-DOS (Windows 98 DOS,
 boot mode **XMC** = HIMEM only, **no EMM386**). Do not run it under EMM386 or any V86-mode
 memory manager — the V86 layer breaks the direct hardware I/O this driver depends on.
 
