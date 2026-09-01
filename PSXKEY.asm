@@ -9,6 +9,7 @@ bCLK  equ 0x04
 MPXID equ 0xC9
 
 %substr VER __?DATE?__,3,8      ; Build-Datum YY-MM-DD (auto bei jedem Assemblieren)
+%substr TIM __?TIME?__,1,5      ; Build-Uhrzeit HH:MM
 
 start:  jmp install
 
@@ -17,6 +18,7 @@ oldint8  dd 0
 oldint2f dd 0
 busy     db 0
 dport    dw 0x3BC
+dly      dw 0x0300
 recv     times 5 db 0
 cnt      times 14 db 0
 keymap   times 14 dw 0
@@ -249,7 +251,7 @@ xchg:
 
 delay:
     push cx
-    mov cx,0x0300
+    mov cx,[dly]
 .d:
     loop .d
     pop cx
@@ -283,6 +285,13 @@ install:
     call parse
     call showini
 .hook:
+    call doauto
+    cmp byte [wtest],0
+    je .res
+    call testmode
+    mov ax,0x4c00
+    int 0x21
+.res:
     mov ax,0x352F
     int 0x21
     mov [oldint2f],bx
@@ -307,6 +316,11 @@ install:
     mov [resseg],bx
     cmp byte [wunload],0
     jne .dounload
+    cmp byte [wtest],0
+    je .alr
+    mov dx,tstresmsg
+    jmp .say
+.alr:
     mov dx,alrmsg
     jmp .say
 .notld:
@@ -386,6 +400,11 @@ parsecmd:
     mov byte [wunload],1
     jmp .n
 .c1:
+    cmp al,'T'
+    jne .c2
+    mov byte [wtest],1
+    jmp .n
+.c2:
     cmp al,'?'
     je .h
     cmp al,'H'
@@ -437,6 +456,289 @@ showini:                 ; Pfad und Inhalt der geladenen INI ausgeben
     mov dx,crlf
     mov ah,9
     int 0x21
+    ret
+
+doauto:                  ; Auto-Erkennung ausfuehren und Port melden
+    cmp byte [wauto],0
+    je .show
+    call autodet
+    jnc .show
+    mov byte [wfail],1
+    mov dx,nopadmsg
+    mov ah,9
+    int 0x21
+.show:
+    call initctl
+    mov dx,portmsg
+    mov ah,9
+    int 0x21
+    mov ax,[dport]
+    call puthex16
+    mov dx,dlymsg
+    mov ah,9
+    int 0x21
+    mov ax,[dly]
+    call puthex16
+    mov dx,crlf
+    mov ah,9
+    int 0x21
+    cmp byte [wfail],0
+    je .d
+    call dumpraw
+.d:
+    ret
+
+initctl:                 ; Port in einen sauberen SPP-Zustand bringen
+    call ecpspp
+    push ax
+    push dx
+    mov dx,[dport]
+    add dx,2
+    mov al,0x0C
+    out dx,al
+    pop dx
+    pop ax
+    ret
+
+ecpspp:                  ; ECP-Port erkennen und auf Mode 000 (SPP) stellen
+    push ax
+    push dx
+    mov dx,[dport]
+    add dx,0x402         ; Extended Control Register
+    mov al,0x34          ; Standardtest: Mode 001 schreiben ...
+    out dx,al
+    call delay
+    in al,dx
+    cmp al,0x35          ; ... liest sich als 0x35 zurueck, wenn ECP vorhanden
+    jne .no
+    xor al,al            ; Mode 000 = SPP, FIFO aus
+    out dx,al
+.no:
+    pop dx
+    pop ax
+    ret
+
+dumpraw:                 ; die 5 Rohbytes der letzten Antwort ausgeben
+    call probe
+    mov dx,rawmsg
+    mov ah,9
+    int 0x21
+    xor bx,bx
+.l:
+    mov al,[recv+bx]
+    call puthex8
+    mov dl,' '
+    mov ah,2
+    int 0x21
+    inc bx
+    cmp bx,5
+    jb .l
+    mov dx,crlf
+    mov ah,9
+    int 0x21
+    ret
+
+autodet:                 ; LPT-Basisadressen aus dem BIOS-Datenbereich testen
+    push es
+    mov ax,0x0040
+    mov es,ax
+    xor si,si            ; Index 0..3 (LPT1..LPT4)
+    xor di,di            ; erster belegter Port, als Rueckfallwert
+.l:
+    mov bx,si
+    shl bx,1
+    mov ax,[es:bx+8]
+    or ax,ax
+    jz .nx
+    or di,di
+    jnz .p
+    mov di,ax
+.p:
+    mov [dport],ax
+    cmp byte [wdly],0    ; feste Vorgabe aus der INI nicht ueberschreiben
+    je .sweep
+    call probe
+    jnc .ok
+    jmp .nx
+.sweep:
+    push si
+    xor si,si
+.s:
+    mov ax,[dlytab+si]
+    or ax,ax
+    jz .sno
+    mov [dly],ax
+    call probe
+    jnc .syes
+    add si,2
+    jmp .s
+.sno:
+    pop si
+    mov word [dly],0x0300
+    jmp .nx
+.syes:
+    pop si
+    jmp .ok
+.nx:
+    inc si
+    cmp si,4
+    jb .l
+    or di,di             ; nichts gefunden -> ersten Port nehmen
+    jz .keep
+    mov [dport],di
+.keep:
+    pop es
+    stc
+    ret
+.ok:
+    pop es
+    clc
+    ret
+
+probe:                   ; CF=0, wenn an [dport] ein Pad antwortet
+    push cx
+    call initctl
+    mov dx,[dport]
+    mov al,POWER|bATT|bCLK|bCMD
+    out dx,al
+    mov cx,40            ; Einschwingzeit fuer die Pad-Elektronik
+.w:
+    push cx
+    call delay
+    pop cx
+    loop .w
+    mov cx,3             ; erster Versuch weckt den Pad oft nur auf
+.t:
+    push cx
+    call pollpad
+    pop cx
+    cmp byte [recv+2],0x5A
+    je .yes
+    loop .t
+    pop cx
+    stc
+    ret
+.yes:
+    pop cx
+    clc
+    ret
+
+puthex16:                ; ax als vierstelligen Hexwert ausgeben
+    push ax
+    mov al,ah
+    call puthex8
+    pop ax
+    call puthex8
+    ret
+
+puthex8:
+    push ax
+    push cx
+    mov cl,4
+    shr al,cl
+    call puthex4
+    pop cx
+    pop ax
+    push ax
+    and al,0x0F
+    call puthex4
+    pop ax
+    ret
+
+puthex4:
+    add al,'0'
+    cmp al,'9'
+    jbe .o
+    add al,7
+.o:
+    mov dl,al
+    mov ah,2
+    int 0x21
+    ret
+
+gotoxy:                  ; dh = Zeile, dl = Spalte
+    push ax
+    push bx
+    mov ah,2
+    xor bh,bh
+    int 0x10
+    pop bx
+    pop ax
+    ret
+
+testmode:                ; alle Tasten live anzeigen, ESC beendet
+    cld
+    mov ax,0x0003        ; Bildschirm loeschen
+    int 0x10
+    mov dx,tsthdr
+    mov ah,9
+    int 0x21
+    mov si,btnnames      ; die 14 Namen untereinander schreiben
+    xor bl,bl
+.nm:
+    mov dh,bl
+    add dh,3
+    mov dl,2
+    call gotoxy
+    call putsz
+.sk:
+    lodsb
+    or al,al
+    jnz .sk
+    inc bl
+    cmp bl,14
+    jb .nm
+.loop:
+    call pollpad
+    xor di,di
+.bl:
+    mov bx,di
+    mov al,[btnoff+bx]
+    mov ah,[btnmask+bx]
+    xor bh,bh
+    mov bl,al
+    mov al,[recv+bx]
+    mov byte [tchr],'.'
+    test al,ah           ; aktiv low: 0 = gedrueckt
+    jnz .np
+    mov byte [tchr],'*'
+.np:
+    mov ax,di
+    add al,3
+    mov dh,al
+    mov dl,14
+    call gotoxy
+    mov dl,[tchr]
+    mov ah,2
+    int 0x21
+    inc di
+    cmp di,14
+    jb .bl
+    mov dh,18            ; Rohbytes darunter
+    mov dl,2
+    call gotoxy
+    mov dx,rawmsg
+    mov ah,9
+    int 0x21
+    xor bx,bx
+.rw:
+    mov al,[recv+bx]
+    call puthex8
+    mov dl,' '
+    mov ah,2
+    int 0x21
+    inc bx
+    cmp bx,5
+    jb .rw
+    mov ah,1             ; Taste gedrueckt?
+    int 0x16
+    jz .loop
+    xor ah,ah
+    int 0x16
+    cmp al,27
+    jne .loop
+    mov ax,0x0003
+    int 0x10
     ret
 
 getini:
@@ -621,12 +923,32 @@ parse:
     jmp .rv1
 .ev:
     mov byte [di],0
-    call isport
-    jnc .npt
+    call isdly
+    jnc .ndly
     push si
     call parsehex
     pop si
+    or ax,ax
+    jz .nl
+    mov [dly],ax
+    mov byte [wdly],1
+    jmp .nl
+.ndly:
+    call isport
+    jnc .npt
+    push si
+    call lcval
+    mov si,valbuf
+    mov di,s_auto
+    call streq
+    jc .pauto
+    call parsehex
+    pop si
     mov [dport],ax
+    jmp .nl
+.pauto:
+    mov byte [wauto],1
+    pop si
     jmp .nl
 .npt:
     call matchbtn
@@ -787,6 +1109,16 @@ lcval:
     pop si
     ret
 
+isdly:
+    push si
+    push di
+    mov si,tokbuf
+    mov di,s_delay
+    call streq
+    pop di
+    pop si
+    ret
+
 isport:
     push si
     push di
@@ -864,6 +1196,8 @@ parsehex:
     ret
 
 s_port db "port",0
+s_auto db "auto",0
+s_delay db "delay",0
 s_lpt  db "lpt",0
 
 lettab db 0x1E,0x30,0x2E,0x20,0x12,0x21,0x22,0x23,0x17,0x24,0x25,0x26,0x32,0x31,0x18,0x19,0x10,0x13,0x1F,0x14,0x16,0x2F,0x11,0x2D,0x15,0x2C
@@ -872,17 +1206,18 @@ btnnames db "up",0,"down",0,"left",0,"right",0,"start",0,"select",0,"cross",0,"c
 nvtab db "space",0,0x39,0,"return",0,0x1C,0,"enter",0,0x1C,0,"esc",0,0x01,0,"tab",0,0x0F,0,"up",0,0x48,1,"down",0,0x50,1,"left",0,0x4B,1,"right",0,0x4D,1,"ctrl",0,0x1D,0,"alt",0,0x38,0,"shift",0,0x2A,0,0
 
 okmsg    db "PSXKEY PSX Controller Driver for LPT and MS-DOS by ottelo (ottelo.jimdofree.com)",13,10
-         db "build ",VER,13,10,'$'
+         db "build ",VER," ",TIM,"   github.com/ottelo9",13,10,'$'
 alrmsg   db "psxkey already resident.",13,10,'$'
 notldmsg db "psxkey not loaded.",13,10,'$'
 unlmsg   db "psxkey unloaded.",13,10,'$'
 cantmsg  db "psxkey: cannot unload (another TSR loaded after).",13,10,'$'
 noini    db "psxkey: .ini not found, no mapping.",13,10,'$'
 helptxt  db "PSXKEY - PSX Controller Driver for LPT / MS-DOS  by ottelo",13,10
-         db "  ottelo.jimdofree.com  (build ",VER,")",13,10
+         db "  ottelo.jimdofree.com  -  github.com/ottelo9  (build ",VER," ",TIM,")",13,10
          db "Usage:",13,10
          db "  PSXKEY       install (reads PSXKEY.INI)",13,10
          db "  PSXKEY /U    unload",13,10
+         db "  PSXKEY /T    test mode (show all buttons, ESC quits)",13,10
          db "  PSXKEY /?    this help",13,10
          db "INI: 'button = key' per line; 'port = 0x3BC' sets LPT.",13,10
          db "  sections [], ; and // are ignored.",13,10
@@ -895,16 +1230,28 @@ helptxt  db "PSXKEY - PSX Controller Driver for LPT / MS-DOS  by ottelo",13,10
          db "  Pin 3  (D1)          -> ATT",13,10
          db "  Pin 4  (D2)          -> CLK",13,10
          db "  Pin 10               -> DATA",13,10
-         db "  Pin 7-9 via diodes   -> +V (3.3-5V)",13,10
+         db "  Pin 6-9 via diodes   -> +V (3.3-5V)",13,10
          db "  Pin 18-25            -> GND",13,10,'$'
 
 madedef db 0
 defmsg  db "psxkey: PSXKEY.INI not found - created default.",13,10,'$'
 inimsg  db "ini: ",'$'
 crlf    db 13,10,'$'
+wauto   db 0
+wfail   db 0
+wdly    db 0
+wtest   db 0
+tchr    db 0
+dlytab  dw 0x0300,0x0100,0x0080,0x0800,0x1800,0x4000,0
+rawmsg  db "raw: ",'$'
+dlymsg  db "  delay: 0x",'$'
+tsthdr  db "PSXKEY test mode - press buttons on the pad, ESC to quit",13,10,'$'
+tstresmsg db "psxkey: unload with /U before running the test mode.",13,10,'$'
+portmsg db "port: 0x",'$'
+nopadmsg db "psxkey: auto - no pad found, using ",'$'
 defini:
     db "[psx]",13,10
-    db "port = 0x3BC",13,10
+    db "port = auto",13,10
     db "box = a",13,10
     db "cross = x",13,10
     db "circle = o",13,10

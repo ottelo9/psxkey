@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PSXKEY &mdash; PlayStation Controller for MS-DOS</title>
+<style>
+  :root{
+    --bg:#fbfaf8; --fg:#24292f; --mut:#57606a; --line:#d8d4cd;
+    --acc:#b4451f; --card:#ffffff; --code:#f2efe9;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#16181c; --fg:#e6e1d8; --mut:#9aa1ab; --line:#31353c;
+           --acc:#e2763f; --card:#1d2026; --code:#22262c; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:760px;margin:0 auto;padding:28px 20px 72px}
+  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+         border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:26px}
+  h1{font-size:26px;margin:0;letter-spacing:-.4px}
+  h1 span{color:var(--acc)}
+  .lang{margin-left:auto;display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .lang button{font:inherit;font-size:13px;font-weight:600;padding:5px 13px;border:0;cursor:pointer;
+               background:transparent;color:var(--mut)}
+  .lang button.on{background:var(--acc);color:#fff}
+  h2{font-size:19px;margin:34px 0 10px;letter-spacing:-.2px}
+  p{margin:10px 0}
+  ul{margin:10px 0;padding-left:22px}
+  li{margin:5px 0}
+  img{max-width:100%;height:auto;border-radius:8px;display:block}
+  figure{margin:20px 0}
+  figure.port img{max-width:420px;margin-left:auto;margin-right:auto}
+  figcaption{color:var(--mut);font-size:13px;margin-top:7px}
+  code,kbd{background:var(--code);border:1px solid var(--line);border-radius:4px;
+           padding:1px 5px;font-family:ui-monospace,Consolas,"Courier New",monospace;font-size:13.5px}
+  kbd{font-weight:600}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:13px 15px;
+      overflow-x:auto;font-family:ui-monospace,Consolas,"Courier New",monospace;font-size:13px;line-height:1.5}
+  pre code{background:none;border:0;padding:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:16px 18px;margin:18px 0}
+  .card h3{margin:0 0 6px;font-size:16px}
+  .note{border-left:3px solid var(--acc);padding-left:14px;color:var(--mut);margin:18px 0}
+  footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
+         color:var(--mut);font-size:14px}
+  a{color:var(--acc)}
+  [data-lang]{display:none}
+  html[data-show="de"] [data-lang="de"]{display:revert}
+  html[data-show="en"] [data-lang="en"]{display:revert}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>PSX<span>KEY</span></h1>
+  <div class="lang">
+    <button id="b-de" onclick="setLang('de')">Deutsch</button>
+    <button id="b-en" onclick="setLang('en')">English</button>
+  </div>
+</header>
+
+<p data-lang="de"><strong>PSXKEY macht aus einem PlayStation-Controller eine Tastatur.</strong>
+Der PSX(PS1/PS2)-Controller wird &uuml;ber den Parallelport (LPT) an einen alten PC oder Laptop (RetroPC)
+angeschlossen. Das Programm wandelt jeden Tastendruck des Playstation-Controllers in einen beliebigen Tastatur-Tastendruck um.
+So lassen sich DOS-Spiele mit dem Gamepad steuern.</p>
+
+<p data-lang="en"><strong>PSXKEY turns a PlayStation controller into a keyboard.</strong>
+The PSX(PS1/PS2) pad connects to the parallel (LPT) port of an old PC or laptop (RetroPC). The
+program converts every button press of the Playstation controller into a keystroke. That lets you play DOS games with
+a gamepad.</p>
+
+<p data-lang="de">Die Tasten werden dabei nicht in den BIOS-Puffer geschrieben, sondern
+direkt auf Ebene des Tastaturcontrollers eingeschleust. Deshalb funktioniert es auch mit
+Spielen, die die Tastatur selbst auslesen &mdash; z.B. <em>Commander Keen</em> oder
+<em>King&rsquo;s Chase</em>.</p>
+
+<p data-lang="en">Keys are not written into the BIOS buffer but injected at keyboard
+controller level. That is why it also works with games that read the keyboard themselves
+&mdash; <em>Commander Keen</em> or <em>King&rsquo;s Chase</em>, for example.</p>
+
+<figure>
+  <img src="psxkey_converter.jpg" alt="PSXKEY adapter in the parallel port of a laptop">
+  <figcaption data-lang="de">Der psxkey-Adapter steckt direkt im Parallelport</figcaption>
+  <figcaption data-lang="en">The psxkey adapter plugs straight into the parallel port</figcaption>
+</figure>
+
+<figure class="port">
+  <img src="psxkey_game_keen.jpg" alt="Commander Keen played with a PSX pad">
+  <figcaption data-lang="de">Commander Keen auf einem ThinkPad 380XD, gesteuert mit einem
+  PS1-Controller.</figcaption>
+  <figcaption data-lang="en">Commander Keen on a ThinkPad 380XD, played with the PSX pad.</figcaption>
+</figure>
+
+<h2 data-lang="de">Was man braucht</h2>
+<h2 data-lang="en">What you need</h2>
+
+<ul data-lang="de">
+  <li>Einen PC oder Laptop mit <strong>Parallelport</strong> und MS-DOS (oder Win98 im MS-DOS Modus)</li>
+  <li>Einen <strong>PSX/PS1- oder PS2-Controller</strong> (kabelgebunden)</li>
+  <li>Den <strong>Adapter</strong> zwischen LPT-Port und Controller</li>
+  <li><code>PSXKEY.COM</code> &mdash; etwa 8 KB, l&auml;uft ohne Installation</li>
+</ul>
+
+<ul data-lang="en">
+  <li>A PC or laptop with a <strong>parallel port</strong> running MS-DOS (or Win98 with MS-DOS Mode)</li>
+  <li>A wired <strong>PSX/PS1 or PS2 controller</strong></li>
+  <li>The <strong>adapter</strong> between LPT port and controller</li>
+  <li><code>PSXKEY.COM</code> &mdash; about 8 KB, needs no installation</li>
+</ul>
+
+<h2 data-lang="de">Der Adapter</h2>
+<h2 data-lang="en">The adapter</h2>
+
+<div class="card">
+  <h3 data-lang="de">Fertig kaufen</h3>
+  <h3 data-lang="en">Buy it ready-made</h3>
+  <p data-lang="de">Ich biete den fertigen Adapter <strong>&bdquo;psxkey&ldquo;</strong> auf
+  eBay an &mdash; best&uuml;ckte Platine im Geh&auml;use, anstecken und loslegen.</p>
+  <p data-lang="en">I sell the finished <strong>&ldquo;psxkey&rdquo;</strong> adapter on
+  eBay &mdash; assembled board in an enclosure, just plug it in.</p>
+</div>
+
+<div class="card">
+  <h3 data-lang="de">Selbst bauen</h3>
+  <h3 data-lang="en">Build it yourself</h3>
+  <p data-lang="de">Ein 25-poliger D-Sub-Stecker, eine PSX-Buchse, vier Dioden. Mehr ist
+  es nicht &mdash; kein Widerstand, kein IC.</p>
+  <p data-lang="en">A 25-pin D-Sub plug, a PSX socket, four diodes. That is all &mdash;
+  no resistors, no ICs.</p>
+</div>
+
+<figure>
+  <img src="wiring.svg" alt="Wiring diagram DB25 to PSX socket">
+  <figcaption data-lang="de">Verdrahtung. Die vier Dioden an Pin 6&ndash;9 versorgen den
+  Controller mit Strom.</figcaption>
+  <figcaption data-lang="en">Wiring. The four diodes on pins 6&ndash;9 supply power to the
+  controller.</figcaption>
+</figure>
+
+<h2 data-lang="de">Schritt f&uuml;r Schritt</h2>
+<h2 data-lang="en">Step by step</h2>
+
+<p data-lang="de"><strong>1. In den DOS-Modus starten.</strong> PSXKEY braucht echtes DOS.
+In einem DOS-Fenster unter Windows funktioniert es nicht, weil Windows den Parallelport
+abschirmt.</p>
+<p data-lang="en"><strong>1. Get into DOS mode.</strong> PSXKEY needs real DOS. It will not
+work in a DOS window under Windows, because Windows shields the parallel port.</p>
+
+<ul data-lang="de">
+  <li><strong>Windows 98</strong> &mdash; ganz einfach: <em>Start &rarr; Beenden &rarr;
+      Im MS-DOS-Modus neu starten</em></li>
+  <li>Oder beim Hochfahren <kbd>F8</kbd> dr&uuml;cken und
+      <em>Command prompt only</em> w&auml;hlen</li>
+  <li>In der <code>CONFIG.SYS</code> darf <strong>kein EMM386</strong> geladen sein</li>
+  <li>Um CD-ROM, Maus und USB-Support in DOS zu bekommen, gibt es z.B. <a href="https://www.philscomputerlab.com/ms-dos-mode-super-easy.html">MS-DOS Mode Super Easy</a> und <a href="https://github.com/crazii/USBDDOS">USBDDOS</a></li>
+  <li>Es gibt für DOS sogar einen gut funktionierenden CD-Emulator, falls man nicht immer die CD einlegen will. <code>shsucdhd.com shsucdx.com</code></li>
+</ul>
+<ul data-lang="en">
+  <li><strong>Windows 98</strong> &mdash; super easy: <em>Start &rarr; Shut Down &rarr;
+      Restart in MS-DOS mode</em></li>
+  <li>Or press <kbd>F8</kbd> during boot and pick <em>Command prompt only</em></li>
+  <li><strong>No EMM386</strong> may be loaded in <code>CONFIG.SYS</code></li>
+</ul>
+
+<p data-lang="de"><strong>2. Programm kopieren.</strong>
+<a href="https://github.com/ottelo9/psxkey/raw/main/PSXKEY.COM"><strong>PSXKEY.COM
+herunterladen</strong></a> und auf den RetroPC kopieren &mdash; am besten auf eine
+<strong>Diskette</strong> oder via USB-Stick unter Windows 98</p>
+<p data-lang="en"><strong>2. Copy the program.</strong>
+<a href="https://github.com/ottelo9/psxkey/raw/main/PSXKEY.COM"><strong>Download
+PSXKEY.COM</strong></a> and copy it onto the RetroPC &mdash; a <strong>floppy disk</strong> is a good old fashion way or use a USB-drive on Windows 98.</p>
+
+<p data-lang="de"><strong>3. Adapter anstecken</strong>, Controller einstecken, dann:</p>
+<p data-lang="en"><strong>3. Plug in the adapter</strong> and the controller, then run:</p>
+
+<pre><code>PSXKEY</code></pre>
+
+<p data-lang="de">Beim Start sucht das Programm automatisch den richtigen LPT-Port und stellt das passende Timing
+selbst&auml;ndig ein und zeigt das Ergebnis an. Die Einstellungen werden in die psxkey.ini geschrieben (falls noch nicht vorhanden, wird diese erstellt).</p>
+<p data-lang="en">On startup the program automatically search the correct LPT port and the right timing by
+itself and shows the results. The settings will be saved into psxkey.ini (will be created if not found).</p>
+
+<pre><code>e.g. ini: C:\PSXKEY.INI
+port: 0x03BC  delay: 0x0300</code></pre>
+
+<figure class="port">
+  <img src="psxkey_start.jpg" alt="PSXKEY startup output">
+  <figcaption data-lang="de">Startmeldung: Version, geladene INI, gefundener Port und
+  Timing.</figcaption>
+  <figcaption data-lang="en">Startup: version, the INI in use, the detected port and
+  timing.</figcaption>
+</figure>
+
+<p data-lang="de"><strong>4. Fertig.</strong> Spiel starten und mit dem Controller
+spielen.</p>
+<p data-lang="en"><strong>4. Done.</strong> Start your game and play with the pad.</p>
+
+<h2 data-lang="de">Befehle</h2>
+<h2 data-lang="en">Commands</h2>
+
+<ul data-lang="de">
+  <li><code>PSXKEY</code> &mdash; installieren</li>
+  <li><code>PSXKEY /T</code> &mdash; <strong>Test:</strong> alle Tasten live anzeigen
+      (<kbd>ESC</kbd> beendet). Der schnellste Weg zu pr&uuml;fen, ob Adapter und
+      Controller funktionieren.</li>
+  <li><code>PSXKEY /U</code> &mdash; wieder entfernen</li>
+  <li><code>PSXKEY /?</code> &mdash; Hilfe und Verdrahtung</li>
+</ul>
+<ul data-lang="en">
+  <li><code>PSXKEY</code> &mdash; install</li>
+  <li><code>PSXKEY /T</code> &mdash; <strong>test:</strong> show all buttons live
+      (<kbd>ESC</kbd> quits). The quickest way to check adapter and controller.</li>
+  <li><code>PSXKEY /U</code> &mdash; unload</li>
+  <li><code>PSXKEY /?</code> &mdash; help and wiring</li>
+</ul>
+
+<figure class="port">
+  <img src="psxkey_testmode.jpg" alt="PSXKEY test mode">
+  <figcaption data-lang="de">Der Testmodus <code>/T</code> zeigt alle Tasten live an.</figcaption>
+  <figcaption data-lang="en">Test mode <code>/T</code> shows every button live.</figcaption>
+</figure>
+
+<h2 data-lang="de">Tastenbelegung</h2>
+<h2 data-lang="en">Button mapping</h2>
+
+<p data-lang="de">Die Zuordnung steht in <code>PSXKEY.INI</code> neben dem Programm und
+l&auml;sst sich mit jedem Texteditor &auml;ndern. Fehlt die Datei, wird sie beim ersten
+Start automatisch angelegt.</p>
+<p data-lang="en">The mapping lives in <code>PSXKEY.INI</code> next to the program and can
+be edited with any text editor. If the file is missing it is created on first start.</p>
+
+<pre><code>[psx]
+port = auto
+cross = x
+circle = o
+start = return
+up = up
+down = down</code></pre>
+
+<div class="note">
+  <span data-lang="de">Reagiert der Controller nicht, hilft meist ein anderer Wert f&uuml;r
+  <code>delay</code> in der INI &mdash; auf sehr schnellen Rechnern muss die
+  &Uuml;bertragung langsamer laufen.</span>
+  <span data-lang="en">If the pad does not respond, a different <code>delay</code> value in
+  the INI usually fixes it &mdash; on very fast machines the transfer has to run
+  slower.</span>
+</div>
+
+<footer>
+  <p>
+    <span data-lang="de">Programm, Quellcode und Details:</span>
+    <span data-lang="en">Program, source code and details:</span>
+    <a href="https://github.com/ottelo9">github.com/ottelo9</a> &middot;
+    <a href="https://ottelo.jimdofree.com">ottelo.jimdofree.com</a>
+  </p>
+</footer>
+
+</div>
+
+<script>
+function setLang(l){
+  document.documentElement.setAttribute('data-show', l);
+  document.documentElement.lang = l;
+  document.getElementById('b-de').className = (l === 'de') ? 'on' : '';
+  document.getElementById('b-en').className = (l === 'en') ? 'on' : '';
+  try { localStorage.setItem('psxkey-lang', l); } catch (e) {}
+}
+(function(){
+  var l = null;
+  try { l = localStorage.getItem('psxkey-lang'); } catch (e) {}
+  if (l !== 'de' && l !== 'en') {
+    l = (navigator.language || 'en').toLowerCase().indexOf('de') === 0 ? 'de' : 'en';
+  }
+  setLang(l);
+})();
+</script>
+</body>
+</html>
