@@ -43,7 +43,7 @@ Transient part: `install` (banner → `getini` → `parse` → `showini` → `do
 
 ## INI (PSXKEY.INI)
 
-`button = key` per line; `[...]`, `;` and `//` are ignored. Buttons: up down left right start select cross circle triangle box l1 l2 r1 r2. Keys: a–z, 0–9, space return enter esc tab, up/down/left/right (E0), ctrl alt shift, num0–num9 num. num+ num- num* num/ numenter (num/ and numenter E0), backspace, f1–f12. Plus `port = auto | 0x378`, `delay = 0x0800` (hex) and `timer = rtc`.
+`button = key` per line; `[...]`, `;` and `//` are ignored. Buttons: up down left right start select cross circle triangle box l1 l2 r1 r2. Keys: a–z, 0–9, space return enter esc tab, up/down/left/right (E0), ctrl alt shift, num0–num9 num. num+ num- num* num/ numenter (num/ and numenter E0), backspace, f1–f12. Plus `port = auto | 0x378`, `delay = 0x0800` (hex, test option only; auto timing is the normal way) and `timer = rtc`.
 
 `timer = rtc` exists because some games hook INT 8 and never chain (East Point ports Project X and The Lion King: PIT synced to VGA retrace, own EOI, `iret`; Lion King is DOS/4GW). Neither touches the RTC/IRQ 8.
 

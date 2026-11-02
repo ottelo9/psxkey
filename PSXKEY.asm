@@ -1392,7 +1392,7 @@ helptxt  db "PSXKEY - PSX pad on LPT -> keyboard (MS-DOS)   build ",VER," ",TIM,
          db "        PSXKEY /?   this help",13,10,13,10
          db "PSXKEY.INI:",13,10
          db "  port  = auto | 0x378   LPT port",13,10
-         db "  delay = 0x800          slower pad timing (fast PCs)",13,10
+         db "  delay = 0x800          force pad timing (test only)",13,10
          db "  timer = rtc            for games that take over the timer",13,10
          db "  cross = x              button = key, one per line",13,10,13,10
          db "Buttons: up down left right start select cross circle triangle box l1 l2 r1 r2",13,10

@@ -112,7 +112,7 @@ too fast for many pads and produces errors that never occur in normal use. A res
 faulty when the third byte is not `5A`. The resident driver ignores such responses and
 keeps the previous button state; without that, a single bad poll looks like "all buttons
 released" and the game sees the key flicker (seen in The Lion King with `timer = rtc`).
-If `errors` keeps rising, try a larger `delay`.
+If `errors` keeps rising, try a larger `delay` (test option, see below).
 
 ## The official PSXKEY PSX-LPT-Adapter/Converter
 <img width="400" height="289" alt="image" src="https://github.com/user-attachments/assets/4f3fb4ec-7f5a-48d9-8701-6ea7d3fd2de1" />
@@ -136,8 +136,8 @@ Both the path and the contents of the INI in effect are printed at startup.
 - `port = 0x3BC` (or `lpt = ...`) sets the LPT port (hex, `0x` optional).
 - `port = auto` probes for the controller automatically (see below). This is the
   default in the generated INI.
-- `delay = 0x300` sets the bit-bang delay loop count (hex). Omit it and `port = auto`
-  finds a working value by itself.
+- `delay = 0x300` *(test option)* forces the bit-bang delay loop count (hex) and skips the
+  automatic timing search. Not needed in normal use, `port = auto` finds the value itself.
 - `timer = rtc` polls the pad from the real-time clock interrupt instead of the system
   timer (see below).
 
@@ -230,7 +230,7 @@ You can also find out the port on your own with this command (in DOS):
 The first word is LPT1 — on the ThinkPad 380XD that is `BC 03`, i.e. `0x3BC`, which is the
 driver's default and can be overridden with `port =` in the INI.
 
-### timing (`delay`)
+### Timing (`delay`, test option)
 
 The clock is bit-banged with a plain counting loop, so its speed follows the CPU. What
 works on a 233 MHz Pentium can be far too fast on a 1 GHz machine, and then the pad never
@@ -240,10 +240,11 @@ in. `port = auto` therefore sweeps several loop counts per port
 answers 64 polls in a row without a single faulty response. A value that works only most of
 the time (the pad answers, but every tenth poll fails) is rejected.
 
-Set `delay = ...` in the INI to pin a value down and skip the search. A value found once on
-a given machine stays valid, so this is worth doing on a machine you use regularly.
+`delay = ...` in the INI forces a value and skips the search. It is meant for testing only
+(e.g. to compare values with the error counter of `/T`); in normal use leave it out and let
+`port = auto` pick the value. The startup line shows which value was chosen.
 
-Measured values:
+Values chosen by `port = auto`:
 
 | Machine | CPU | `delay` |
 |---|---|---|
