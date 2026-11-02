@@ -7,6 +7,7 @@ bCMD  equ 0x01
 bATT  equ 0x02
 bCLK  equ 0x04
 MPXID equ 0xC9
+RTCDIV equ 56              ; RTC 1024 Hz / 56 = ca. 18 Hz Abfragerate
 
 %substr VER __?DATE?__,3,8      ; Build-Datum YY-MM-DD (auto bei jedem Assemblieren)
 %substr TIM __?TIME?__,1,5      ; Build-Uhrzeit HH:MM
@@ -16,6 +17,9 @@ start:  jmp install
 ; ---------------- resident data ----------------
 oldint8  dd 0
 oldint2f dd 0
+oldint70 dd 0
+usertc   db 0           ; 1 = Abfrage ueber RTC (INT 70h) statt INT 8
+rtcdiv   db RTCDIV
 busy     db 0
 dport    dw 0x3BC
 dly      dw 0x0300
@@ -39,6 +43,36 @@ int2f:
 
 ; ---------------- resident timer ISR ----------------
 isr8:
+    call dopoll
+    jmp far [cs:oldint8]
+
+; ---------------- resident RTC ISR (timer = rtc) ----------------
+; fuer Spiele, die INT 8 komplett uebernehmen und nicht weiterreichen
+isr70:
+    pushf
+    call far [cs:oldint70]   ; BIOS: Reg C lesen, EOI, INT-15h-Wartefunktion
+    push ax
+    mov al,0x0B              ; BIOS schaltet PIE ohne aktive Wartefunktion ab
+    out 0x70,al
+    in al,0x71
+    test al,0x40
+    jnz .pie
+    or al,0x40
+    mov ah,al
+    mov al,0x0B
+    out 0x70,al
+    mov al,ah
+    out 0x71,al
+.pie:
+    dec byte [cs:rtcdiv]
+    jnz .out
+    mov byte [cs:rtcdiv],RTCDIV
+    call dopoll
+.out:
+    pop ax
+    iret
+
+dopoll:
     push ax
     push bx
     push cx
@@ -54,6 +88,8 @@ isr8:
     sti
     call pollpad
     cli
+    cmp byte [recv+2],0x5A   ; gestoerte Antwort verwerfen, Tasten bleiben wie sie sind
+    jne .bad
     xor si,si
 .bl:
     mov bl,[btnoff+si]
@@ -82,6 +118,7 @@ isr8:
     inc si
     cmp si,14
     jne .bl
+.bad:
     mov byte [busy],0
 .out:
     pop es
@@ -91,7 +128,7 @@ isr8:
     pop cx
     pop bx
     pop ax
-    jmp far [cs:oldint8]
+    ret
 
 sendmake:
     push ax
@@ -299,6 +336,8 @@ install:
     mov dx,int2f
     mov ax,0x252F
     int 0x21
+    cmp byte [usertc],0
+    jne .rtc
     mov ax,0x3508
     int 0x21
     mov [oldint8],bx
@@ -306,6 +345,33 @@ install:
     mov dx,isr8
     mov ax,0x2508
     int 0x21
+    jmp .keep
+.rtc:
+    mov ax,0x3570
+    int 0x21
+    mov [oldint70],bx
+    mov [oldint70+2],es
+    mov dx,isr70
+    mov ax,0x2570
+    int 0x21
+    cli
+    in al,0xA1               ; IRQ 8 freigeben
+    and al,0xFE
+    out 0xA1,al
+    in al,0x21               ; Kaskade IRQ 2 freigeben
+    and al,0xFB
+    out 0x21,al
+    mov al,0x0B              ; periodischen Interrupt (PIE) einschalten
+    out 0x70,al
+    in al,0x71
+    or al,0x40
+    mov ah,al
+    mov al,0x0B
+    out 0x70,al
+    mov al,ah
+    out 0x71,al
+    sti
+.keep:
     mov dx,install
     add dx,15
     mov cl,4
@@ -340,6 +406,9 @@ install:
 
 ; ---- unload resident (resseg set) ----
 unload:
+    mov es,[resseg]
+    cmp byte [es:usertc],0
+    jne .urtc
     mov ax,0x3508
     int 0x21              ; current int8 -> es:bx
     mov ax,es
@@ -353,6 +422,37 @@ unload:
     mov ax,0x2508
     int 0x21
     pop ds
+    jmp .u2f
+.urtc:
+    mov ax,0x3570
+    int 0x21              ; current int70 -> es:bx
+    mov ax,es
+    cmp ax,[resseg]
+    jne .cant
+    mov es,[resseg]
+    mov dx,[es:oldint70]
+    mov ax,[es:oldint70+2]
+    push ds
+    mov ds,ax
+    mov ax,0x2570
+    int 0x21
+    pop ds
+    xor ax,ax
+    mov es,ax
+    test byte [es:0x4A0],1   ; laeuft gerade eine INT-15h-Wartefunktion?
+    jnz .u2f
+    cli
+    mov al,0x0B              ; PIE wieder aus
+    out 0x70,al
+    in al,0x71
+    and al,0xBF
+    mov ah,al
+    mov al,0x0B
+    out 0x70,al
+    mov al,ah
+    out 0x71,al
+    sti
+.u2f:
     mov es,[resseg]
     mov dx,[es:oldint2f]
     mov ax,[es:oldint2f+2]
@@ -479,6 +579,12 @@ doauto:                  ; Auto-Erkennung ausfuehren und Port melden
     int 0x21
     mov ax,[dly]
     call puthex16
+    cmp byte [usertc],0
+    je .nrtc
+    mov dx,rtcmsg
+    mov ah,9
+    int 0x21
+.nrtc:
     mov dx,crlf
     mov ah,9
     int 0x21
@@ -619,8 +725,20 @@ probe:                   ; CF=0, wenn an [dport] ein Pad antwortet
     stc
     ret
 .yes:
+    mov cx,64            ; danach muessen 64 Abfragen in Folge fehlerfrei sein,
+.v:                      ; sonst ist das Timing nur grenzwertig
+    push cx
+    call pollpad
+    pop cx
+    cmp byte [recv+2],0x5A
+    jne .no
+    loop .v
     pop cx
     clc
+    ret
+.no:
+    pop cx
+    stc
     ret
 
 puthex16:                ; ax als vierstelligen Hexwert ausgeben
@@ -689,7 +807,18 @@ testmode:                ; alle Tasten live anzeigen, ESC beendet
     cmp bl,14
     jb .nm
 .loop:
+    xor ax,ax            ; auf den naechsten Timer-Tick warten (18,2 Hz wie der Treiber)
+    mov es,ax
+    mov ax,[es:0x46C]
+.tk:
+    cmp ax,[es:0x46C]
+    je .tk
     call pollpad
+    inc word [tpoll]
+    cmp byte [recv+2],0x5A
+    je .ok
+    inc word [terr]
+.ok:
     xor di,di
 .bl:
     mov bx,di
@@ -730,6 +859,19 @@ testmode:                ; alle Tasten live anzeigen, ESC beendet
     inc bx
     cmp bx,5
     jb .rw
+    mov dh,19            ; Abfragen / fehlerhafte Antworten (hex)
+    mov dl,2
+    call gotoxy
+    mov dx,pollmsg
+    mov ah,9
+    int 0x21
+    mov ax,[tpoll]
+    call puthex16
+    mov dx,errmsg
+    mov ah,9
+    int 0x21
+    mov ax,[terr]
+    call puthex16
     mov ah,1             ; Taste gedrueckt?
     int 0x16
     jz .loop
@@ -923,6 +1065,19 @@ parse:
     jmp .rv1
 .ev:
     mov byte [di],0
+    mov di,s_timer
+    call iskey
+    jnc .ntim
+    push si
+    call lcval
+    mov si,valbuf
+    mov di,s_rtc
+    call streq
+    pop si
+    jnc .nl
+    mov byte [usertc],1
+    jmp .nl
+.ntim:
     call isdly
     jnc .ndly
     push si
@@ -1109,6 +1264,15 @@ lcval:
     pop si
     ret
 
+iskey:                   ; CF=1, wenn tokbuf == ds:di
+    push si
+    push di
+    mov si,tokbuf
+    call streq
+    pop di
+    pop si
+    ret
+
 isdly:
     push si
     push di
@@ -1198,6 +1362,8 @@ parsehex:
 s_port db "port",0
 s_auto db "auto",0
 s_delay db "delay",0
+s_timer db "timer",0
+s_rtc   db "rtc",0
 s_lpt  db "lpt",0
 
 lettab db 0x1E,0x30,0x2E,0x20,0x12,0x21,0x22,0x23,0x17,0x24,0x25,0x26,0x32,0x31,0x18,0x19,0x10,0x13,0x1F,0x14,0x16,0x2F,0x11,0x2D,0x15,0x2C
@@ -1207,7 +1373,9 @@ nvtab db "space",0,0x39,0,"return",0,0x1C,0,"enter",0,0x1C,0,"esc",0,0x01,0,"tab
       db "num0",0,0x52,0,"num1",0,0x4F,0,"num2",0,0x50,0,"num3",0,0x51,0,"num4",0,0x4B,0
       db "num5",0,0x4C,0,"num6",0,0x4D,0,"num7",0,0x47,0,"num8",0,0x48,0,"num9",0,0x49,0
       db "num.",0,0x53,0,"num+",0,0x4E,0,"num-",0,0x4A,0,"num*",0,0x37,0,"num/",0,0x35,1
-      db "numenter",0,0x1C,1,0
+      db "numenter",0,0x1C,1,"backspace",0,0x0E,0
+      db "f1",0,0x3B,0,"f2",0,0x3C,0,"f3",0,0x3D,0,"f4",0,0x3E,0,"f5",0,0x3F,0,"f6",0,0x40,0
+      db "f7",0,0x41,0,"f8",0,0x42,0,"f9",0,0x43,0,"f10",0,0x44,0,"f11",0,0x57,0,"f12",0,0x58,0,0
 
 okmsg    db "PSXKEY PSX Controller Driver for LPT and MS-DOS by ottelo (ottelo.jimdofree.com)",13,10
          db "build ",VER," ",TIM,"   github.com/ottelo9",13,10,'$'
@@ -1216,27 +1384,20 @@ notldmsg db "psxkey not loaded.",13,10,'$'
 unlmsg   db "psxkey unloaded.",13,10,'$'
 cantmsg  db "psxkey: cannot unload (another TSR loaded after).",13,10,'$'
 noini    db "psxkey: .ini not found, no mapping.",13,10,'$'
-helptxt  db "PSXKEY - PSX Controller Driver for LPT / MS-DOS  by ottelo",13,10
-         db "  ottelo.jimdofree.com  -  github.com/ottelo9  (build ",VER," ",TIM,")",13,10
-         db "Usage:",13,10
-         db "  PSXKEY       install (reads PSXKEY.INI)",13,10
-         db "  PSXKEY /U    unload",13,10
-         db "  PSXKEY /T    test mode (show all buttons, ESC quits)",13,10
-         db "  PSXKEY /?    this help",13,10
-         db "INI: 'button = key' per line; 'port = 0x3BC' sets LPT.",13,10
-         db "  sections [], ; and // are ignored.",13,10
-         db "Buttons: up down left right start select cross circle",13,10
-         db "         triangle box l1 l2 r1 r2",13,10
-         db "Keys: letters, digits, space return enter esc tab,",13,10
-         db "      up down left right, ctrl alt shift.",13,10
-         db "      num0-num9 num. num+ num- num* num/ numenter.",13,10
-         db "Wiring  LPT DB25 (male)  ->  PSX pad:",13,10
-         db "  Pin 2  (D0)          -> CMD",13,10
-         db "  Pin 3  (D1)          -> ATT",13,10
-         db "  Pin 4  (D2)          -> CLK",13,10
-         db "  Pin 10               -> DATA",13,10
-         db "  Pin 6-9 via diodes   -> +V (3.3-5V)",13,10
-         db "  Pin 18-25            -> GND",13,10,'$'
+helptxt  db "PSXKEY - PSX pad on LPT -> keyboard (MS-DOS)   build ",VER," ",TIM,13,10
+         db "by ottelo   ottelo.jimdofree.com   github.com/ottelo9",13,10,13,10
+         db "Usage:  PSXKEY      install (reads PSXKEY.INI)",13,10
+         db "        PSXKEY /U   unload",13,10
+         db "        PSXKEY /T   test mode (ESC quits)",13,10
+         db "        PSXKEY /?   this help",13,10,13,10
+         db "PSXKEY.INI:",13,10
+         db "  port  = auto | 0x378   LPT port",13,10
+         db "  delay = 0x800          slower pad timing (fast PCs)",13,10
+         db "  timer = rtc            for games that take over the timer",13,10
+         db "  cross = x              button = key, one per line",13,10,13,10
+         db "Buttons: up down left right start select cross circle triangle box l1 l2 r1 r2",13,10
+         db "Keys:    a-z 0-9 space return esc tab backspace up down left right",13,10
+         db "         ctrl alt shift f1-f12 num0-num9 num. num+ num- num* num/ numenter",13,10,'$'
 
 madedef db 0
 defmsg  db "psxkey: PSXKEY.INI not found - created default.",13,10,'$'
@@ -1249,7 +1410,12 @@ wtest   db 0
 tchr    db 0
 dlytab  dw 0x0300,0x0100,0x0080,0x0800,0x1800,0x4000,0
 rawmsg  db "raw: ",'$'
+pollmsg db "polls: ",'$'
+errmsg  db "  errors: ",'$'
+tpoll   dw 0
+terr    dw 0
 dlymsg  db "  delay: 0x",'$'
+rtcmsg  db "  timer: rtc",'$'
 tsthdr  db "PSXKEY test mode - press buttons on the pad, ESC to quit",13,10,'$'
 tstresmsg db "psxkey: unload with /U before running the test mode.",13,10,'$'
 portmsg db "port: 0x",'$'
@@ -1257,6 +1423,7 @@ nopadmsg db "psxkey: auto - no pad found, using ",'$'
 defini:
     db "[psx]",13,10
     db "port = auto",13,10
+    db ";timer = rtc   (remove ; if the pad does not work in a game)",13,10
     db "box = a",13,10
     db "cross = x",13,10
     db "circle = o",13,10

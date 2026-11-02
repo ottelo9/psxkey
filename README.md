@@ -18,8 +18,9 @@ controller through the parallel (LPT) port** and injects the mapped buttons as *
 keystrokes**. This lets you play DOS games with a PSX gamepad.
 
 Originally built and tested on an **IBM ThinkPad 380XD** and **Toshiba Satellite Pro 4600** running MS-DOS (Windows 98 DOS,
-boot mode **XMC** = HIMEM only, **no EMM386**). Do not run it under EMM386 or any V86-mode
-memory manager — the V86 layer breaks the direct hardware I/O this driver depends on.
+boot mode **XMC** = HIMEM only). EMM386 works as well (tested on a Toshiba Satellite Pro 4300
+with Project X, which needs EMS). It does not run in a Windows DOS box, where the port I/O is
+virtualized.
 
 ## Video
 [![Youtube](https://img.youtube.com/vi/OIvptmBVmj8/hqdefault.jpg)](https://www.youtube.com/watch?v=OIvptmBVmj8)
@@ -43,7 +44,7 @@ enough for those titles.
 |--------------|---------------------------------------------------------------------------|
 | `PSXKEY`     | Install the driver (reads [PSXKEY.INI](#configuration-psxkeyini)).                                   |
 | `PSXKEY /U`  | Unload the driver.                                                         |
-| `PSXKEY /?`  | Show help including the wiring diagram.                                    |
+| `PSXKEY /?`  | Show help (commands, INI options, buttons and keys).                       |
 | `PSXKEY /T`  | Test mode: show all buttons live, without installing.                      |
 
 Note: Double-loading is prevented via an INT 2Fh multiplex ID (`0xC9`). Unloading restores INT 8
@@ -93,6 +94,7 @@ PSXKEY test mode - press buttons on the pad, ESC to quit
   ...
 
   raw: FF 41 5A FF DF
+  polls: 01A3  errors: 0000
 ```
 
 <p align="center">
@@ -103,6 +105,14 @@ Test mode runs before the interrupts are hooked, but after the INI has been read
 `port = auto` and `delay` apply here as well. It refuses to run while PSXKEY is already
 resident — the installed copy polls the same port from the timer interrupt and the two
 would corrupt each other's transfers. Unload with `/U` first.
+
+The last line counts the polls and the faulty responses (both hex). Test mode polls once
+per timer tick (18.2 Hz), the same rate as the resident driver; polling back to back is
+too fast for many pads and produces errors that never occur in normal use. A response counts as
+faulty when the third byte is not `5A`. The resident driver ignores such responses and
+keeps the previous button state; without that, a single bad poll looks like "all buttons
+released" and the game sees the key flicker (seen in The Lion King with `timer = rtc`).
+If `errors` keeps rising, try a larger `delay`.
 
 ## The official PSXKEY PSX-LPT-Adapter/Converter
 <img width="400" height="289" alt="image" src="https://github.com/user-attachments/assets/4f3fb4ec-7f5a-48d9-8701-6ea7d3fd2de1" />
@@ -128,16 +138,46 @@ Both the path and the contents of the INI in effect are printed at startup.
   default in the generated INI.
 - `delay = 0x300` sets the bit-bang delay loop count (hex). Omit it and `port = auto`
   finds a working value by itself.
+- `timer = rtc` polls the pad from the real-time clock interrupt instead of the system
+  timer (see below).
 
 **Buttons:** `up down left right start select cross circle triangle box l1 l2 r1 r2`
 
-**Keys:** letters, digits, `space return enter esc tab`, `up down left right`, `ctrl alt shift`, numpad `num0`–`num9 num. num+ num- num* num/ numenter`
+**Keys** (complete list; names are case-insensitive, scancodes are set 1):
+
+| INI value | Key | Scancode |
+|---|---|---|
+| `a` … `z` | letters | `1E 30 2E 20 12 21 22 23 17 24 25 26 32 31 18 19 10 13 1F 14 16 2F 11 2D 15 2C` |
+| `1` … `9`, `0` | number row | `02` … `0A`, `0B` |
+| `space` | Space | `39` |
+| `return`, `enter` | Enter (main) | `1C` |
+| `esc` | Esc | `01` |
+| `tab` | Tab | `0F` |
+| `backspace` | Backspace | `0E` |
+| `f1` … `f10` | function keys | `3B` … `44` |
+| `f11`, `f12` | function keys | `57`, `58` |
+| `up` `down` `left` `right` | cursor keys | `E0 48`, `E0 50`, `E0 4B`, `E0 4D` |
+| `ctrl` | left Ctrl | `1D` |
+| `alt` | left Alt | `38` |
+| `shift` | left Shift | `2A` |
+| `num0` … `num9` | numpad digits | `52 4F 50 51 4B 4C 4D 47 48 49` |
+| `num.` | numpad `.` / Del | `53` |
+| `num+` | numpad `+` | `4E` |
+| `num-` | numpad `-` | `4A` |
+| `num*` | numpad `*` | `37` |
+| `num/` | numpad `/` | `E0 35` |
+| `numenter` | numpad Enter | `E0 1C` |
+
+Letters are physical key positions (US layout), so with a German keyboard driver `y` and
+`z` are swapped. Punctuation keys and right-hand Ctrl/Alt are not supported yet. A key combination on a single button (e.g. `ctrl+e`) is not
+possible; map one button to `ctrl` and another to `e` instead.
 
 Example (also the generated default):
 
 ```ini
 [psx]
 port = auto
+;timer = rtc   (remove ; if the pad does not work in a game)
 box = a
 cross = x
 circle = o
@@ -196,7 +236,9 @@ The clock is bit-banged with a plain counting loop, so its speed follows the CPU
 works on a 233 MHz Pentium can be far too fast on a 1 GHz machine, and then the pad never
 answers at all — the symptom is `raw: FF FF FF FF FF`, exactly as if nothing were plugged
 in. `port = auto` therefore sweeps several loop counts per port
-(`0x300, 0x100, 0x80, 0x800, 0x1800, 0x4000`) and keeps the first one the pad responds to.
+(`0x300, 0x100, 0x80, 0x800, 0x1800, 0x4000`) and keeps the first one at which the pad
+answers 64 polls in a row without a single faulty response. A value that works only most of
+the time (the pad answers, but every tenth poll fails) is rejected.
 
 Set `delay = ...` in the INI to pin a value down and skip the search. A value found once on
 a given machine stays valid, so this is worth doing on a machine you use regularly.
@@ -206,9 +248,46 @@ Measured values:
 | Machine | CPU | `delay` |
 |---|---|---|
 | IBM ThinkPad 380XD | Pentium MMX 233 MHz | `0x300` |
+| Toshiba Satellite Pro 4300 | Pentium III 700 MHz | `0x800` (`0x300` answers, but ~10 % of polls fail) |
 | Toshiba Satellite Pro 4600 | Pentium III | `0x800` |
 
-The value scales roughly with clock speed, so on a faster machine expect a larger number.
+The value grows roughly with clock speed, so on a faster machine expect a larger number.
+
+### Games that take over the timer (`timer = rtc`)
+
+By default PSXKEY polls the pad from the system timer (INT 8, 18.2 Hz) and passes the tick
+on to the previous handler. Some games install their own INT 8 handler, reprogram the timer
+and never call the old one — then PSXKEY never runs and the pad does nothing in that game.
+Known examples are the East Point Software ports **Project X** and **The Lion King**: both
+sync the timer to the VGA retrace, send their own EOI and return with `iret`.
+
+```ini
+timer = rtc
+```
+
+switches to the real-time clock's periodic interrupt (IRQ 8 / INT 70h). The RTC keeps
+running at the BIOS rate of 1024 Hz, and PSXKEY polls on every 56th tick (about 18 Hz).
+The BIOS handler is still called first, so INT 15h wait functions keep working; because the
+BIOS switches the periodic interrupt off once no wait is pending, PSXKEY turns it back on
+each time. This also works under DOS/4GW games such as The Lion King, as long as the game
+does not hook IRQ 8 itself — the extender passes the interrupt down to real mode. The
+startup line then shows `timer: rtc`.
+
+### Example configs per game (`ini/`)
+
+`ini/` holds ready-made `PSXKEY.INI` files for individual games. The comment at the top of
+each file says how to boot DOS for that game. Copy the file next to `PSXKEY.COM`.
+
+| Game | Boot menu | Notes |
+|---|---|---|
+| The Lion King | 5 (XM) | DOS/4GW, needs `timer = rtc` |
+| Project X | 4 (EM) | needs EMS (EMM386), needs `timer = rtc` |
+
+The boot menu numbers refer to `restart_in_ms-dos_mode/`: a Windows 98 PIF that restarts
+into real MS-DOS mode with a boot menu (HIMEM, EMM386, mouse, CD-ROM in different
+combinations), plus the DOS drivers it loads. See the README in that folder. Based on
+["MS-DOS Mode Super Easy"](https://www.philscomputerlab.com/ms-dos-mode-super-easy.html)
+by Phil's Computer Lab.
 
 ### Configure your LPT port mode
 
@@ -328,7 +407,8 @@ resident footprint stays at 466 bytes / 30 paragraphs.
 
 ## Source map (key routines)
 
-- `isr8` — timer ISR: poll + edge detect + make/break.
+- `isr8` / `isr70` — timer ISR (INT 8) or RTC ISR (INT 70h, `timer = rtc`), both call
+  `dopoll`: poll + edge detect + make/break.
 - `kbcbyte` — the `0xD2` injection (timeout + carry flag + OBF wait).
 - `pollpad` / `xchg` — the bit-bang transfer.
 - `parse` / `mapval` / `matchbtn` / `parsehex` — INI parsing.
@@ -342,8 +422,8 @@ resident footprint stays at 466 bytes / 30 paragraphs.
 - `testmode` / `gotoxy` — the `/T` live button display.
 - Everything before the `install` label is resident; the TSR keep size is the `install`
   offset in paragraphs. Everything added for detection and testing sits in the transient
-  part, so the resident footprint is 469 bytes / 30 paragraphs — the three extra bytes
-  over the original 466 are the now-variable delay counter.
+  part, so the resident footprint is 533 bytes / 34 paragraphs (466 originally, +3 for the
+  variable delay counter, +57 for the RTC handler, +7 for discarding faulty responses).
 
 ## Author
 
