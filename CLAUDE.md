@@ -43,6 +43,6 @@ Transient part: `install` (banner → `getini` → `parse` → `showini` → `do
 
 ## INI (PSXKEY.INI)
 
-`button = key` per line; `[...]`, `;` and `//` are ignored. Buttons: up down left right start select cross circle triangle box l1 l2 r1 r2. Keys: a–z, 0–9, space return enter esc tab, up/down/left/right (E0), ctrl alt shift. Plus `port = auto | 0x378` and `delay = 0x0800` (hex).
+`button = key` per line; `[...]`, `;` and `//` are ignored. Buttons: up down left right start select cross circle triangle box l1 l2 r1 r2. Keys: a–z, 0–9, space return enter esc tab, up/down/left/right (E0), ctrl alt shift, num0–num9 num. num+ num- num* num/ numenter (num/ and numenter E0). Plus `port = auto | 0x378` and `delay = 0x0800` (hex).
 
 Key combos: currently only across two buttons (e.g. `l1 = ctrl`, `cross = e`). A combo on a single button (`cross = ctrl+e`) is not implemented. Possible design: modifier bits in the keymap high byte; make = modifier first, then key; break in reverse order.

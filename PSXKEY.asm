@@ -1203,7 +1203,11 @@ s_lpt  db "lpt",0
 lettab db 0x1E,0x30,0x2E,0x20,0x12,0x21,0x22,0x23,0x17,0x24,0x25,0x26,0x32,0x31,0x18,0x19,0x10,0x13,0x1F,0x14,0x16,0x2F,0x11,0x2D,0x15,0x2C
 digtab db 0x0B,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0A
 btnnames db "up",0,"down",0,"left",0,"right",0,"start",0,"select",0,"cross",0,"circle",0,"triangle",0,"box",0,"l1",0,"l2",0,"r1",0,"r2",0
-nvtab db "space",0,0x39,0,"return",0,0x1C,0,"enter",0,0x1C,0,"esc",0,0x01,0,"tab",0,0x0F,0,"up",0,0x48,1,"down",0,0x50,1,"left",0,0x4B,1,"right",0,0x4D,1,"ctrl",0,0x1D,0,"alt",0,0x38,0,"shift",0,0x2A,0,0
+nvtab db "space",0,0x39,0,"return",0,0x1C,0,"enter",0,0x1C,0,"esc",0,0x01,0,"tab",0,0x0F,0,"up",0,0x48,1,"down",0,0x50,1,"left",0,0x4B,1,"right",0,0x4D,1,"ctrl",0,0x1D,0,"alt",0,0x38,0,"shift",0,0x2A,0
+      db "num0",0,0x52,0,"num1",0,0x4F,0,"num2",0,0x50,0,"num3",0,0x51,0,"num4",0,0x4B,0
+      db "num5",0,0x4C,0,"num6",0,0x4D,0,"num7",0,0x47,0,"num8",0,0x48,0,"num9",0,0x49,0
+      db "num.",0,0x53,0,"num+",0,0x4E,0,"num-",0,0x4A,0,"num*",0,0x37,0,"num/",0,0x35,1
+      db "numenter",0,0x1C,1,0
 
 okmsg    db "PSXKEY PSX Controller Driver for LPT and MS-DOS by ottelo (ottelo.jimdofree.com)",13,10
          db "build ",VER," ",TIM,"   github.com/ottelo9",13,10,'$'
@@ -1225,6 +1229,7 @@ helptxt  db "PSXKEY - PSX Controller Driver for LPT / MS-DOS  by ottelo",13,10
          db "         triangle box l1 l2 r1 r2",13,10
          db "Keys: letters, digits, space return enter esc tab,",13,10
          db "      up down left right, ctrl alt shift.",13,10
+         db "      num0-num9 num. num+ num- num* num/ numenter.",13,10
          db "Wiring  LPT DB25 (male)  ->  PSX pad:",13,10
          db "  Pin 2  (D0)          -> CMD",13,10
          db "  Pin 3  (D1)          -> ATT",13,10

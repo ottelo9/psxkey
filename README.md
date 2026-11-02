@@ -131,7 +131,7 @@ Both the path and the contents of the INI in effect are printed at startup.
 
 **Buttons:** `up down left right start select cross circle triangle box l1 l2 r1 r2`
 
-**Keys:** letters, digits, `space return enter esc tab`, `up down left right`, `ctrl alt shift`
+**Keys:** letters, digits, `space return enter esc tab`, `up down left right`, `ctrl alt shift`, numpad `num0`–`num9 num. num+ num- num* num/ numenter`
 
 Example (also the generated default):
 
