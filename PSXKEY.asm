@@ -43,8 +43,10 @@ int2f:
 
 ; ---------------- resident timer ISR ----------------
 isr8:
-    call dopoll
-    jmp far [cs:oldint8]
+    pushf
+    call far [cs:oldint8]    ; zuerst den alten Handler (EOI), sonst bleibt IRQ 1
+    call dopoll              ; waehrend der Abfrage gesperrt und das Spiel kann
+    iret                     ; die eingeschleusten Scancodes nicht abholen
 
 ; ---------------- resident RTC ISR (timer = rtc) ----------------
 ; fuer Spiele, die INT 8 komplett uebernehmen und nicht weiterreichen
@@ -192,6 +194,10 @@ sendbreak:
 kbcbyte:                 ; al=scancode. CF=0 ok, CF=1 abort
     push cx
     push ax
+    in al,0x64               ; liegt noch ein ungelesenes Tastaturbyte im Puffer,
+    and al,0x21              ; nicht ueberschreiben (sonst gehen Make/Break verloren)
+    cmp al,0x01              ; -> beim naechsten Tick erneut versuchen
+    je .ab
     mov cx,0x0400
 .w1:
     in al,0x64
@@ -213,7 +219,7 @@ kbcbyte:                 ; al=scancode. CF=0 ok, CF=1 abort
     pop ax
     out 0x60,al
     sti
-    mov cx,0x0400
+    mov cx,0x1000            ; dem Spiel Zeit geben, das Byte abzuholen
 .w3:
     in al,0x64
     test al,1

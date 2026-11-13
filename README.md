@@ -386,12 +386,21 @@ resident footprint stays at 466 bytes / 30 paragraphs.
   could cause ~1 s of CLI spin / stutter on release).
 - **Wait for the byte to be consumed (OBF wait) after every byte** (`kbcbyte`, label `.w3`):
   after `out 0x60`, briefly `sti` and wait until the game has read the output buffer
-  (port `0x64` bit0 clear, timeout `cx = 0x400`), then `cli`. This is required because the
+  (port `0x64` bit0 clear, timeout `cx = 0x1000`), then `cli`. This is required because the
   whole injection otherwise runs under `CLI`, so IRQ1 never fires and, for multi-byte
   sequences (the `E0` prefix of the arrow keys), the second byte overwrites the first in the
   1-byte KBC output buffer before it is read → **lost break codes**. Symptom: Commander Keen
   kept walking indefinitely (make without break), especially when releasing several buttons
   at once (e.g. walk + jump); pressing the direction again on its own would stop him.
+- **Chain INT 8 first, then poll.** `isr8` calls the previous INT 8 handler (BIOS: tick,
+  INT 1Ch, EOI) *before* polling the pad. Polling first meant IRQ0 was still in service
+  during the injection, and the PIC then holds back IRQ1 even with `sti` — the OBF wait
+  above could never succeed and the next byte overwrote the unread one. Whether that showed
+  depended on the game and the KBC (a Toshiba Satellite 320CDS showed slow keys, stuck keys
+  and freezes; games that send their own EOI before chaining hid it).
+- **Never overwrite an unread byte.** `kbcbyte` refuses to send (CF = 1, retried next tick)
+  while the output buffer still holds an unread keyboard byte (port `0x64` bit0 set, bit5
+  clear) — that byte may also be a real keystroke.
 - **Self-healing.** `cnt[]` (the last state actually sent) is only updated when `kbcbyte`
   succeeded (CF = 0). On timeout, `cnt` is left unchanged so the next tick retries. This
   prevents stuck keys / a character spinning forever.
@@ -423,8 +432,9 @@ resident footprint stays at 466 bytes / 30 paragraphs.
 - `testmode` / `gotoxy` — the `/T` live button display.
 - Everything before the `install` label is resident; the TSR keep size is the `install`
   offset in paragraphs. Everything added for detection and testing sits in the transient
-  part, so the resident footprint is 533 bytes / 34 paragraphs (466 originally, +3 for the
-  variable delay counter, +57 for the RTC handler, +7 for discarding faulty responses).
+  part, so the resident footprint is 543 bytes / 34 paragraphs (466 originally, +3 for the
+  variable delay counter, +57 for the RTC handler, +7 for discarding faulty responses,
+  +10 for the INT 8 chain order and the unread-byte check).
 
 ## Author
 

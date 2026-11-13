@@ -13,7 +13,7 @@ Author: ottelo – ottelo.jimdofree.com – github.com/ottelo9 (remote `https://
 | File | Content |
 |---|---|
 | `PSXKEY.asm` | entire source (comments German, messages English) |
-| `PSXKEY.COM` | build (~8 KB), resident **533 bytes / 34 paragraphs** |
+| `PSXKEY.COM` | build (~8 KB), resident **543 bytes / 34 paragraphs** |
 | `README.md` | English docs (wiring, INI, LPT mode/IRQ, auto port, delay, test mode, 3.3 V ports, source map) |
 | `docs/index.html` | GitHub Pages help page, DE/EN switchable (`data-lang`, `localStorage 'psxkey-lang'`), light/dark; images are copies in `docs/` |
 | `img/` | `psxkey_converter.jpg`, `psxkey_start.jpg`, `psxkey_testmode.jpg`, `psxkey_game_keen.jpg` (last three have EXIF orientation 6 = portrait, so width limited to 420–440 px), `wiring.svg` |
@@ -25,8 +25,8 @@ Everything **before the label `install`** stays resident. Keep size is computed 
 Resident part:
 - Data: `oldint8`, `oldint2f`, `oldint70`, `usertc`, `rtcdiv`, `busy`, `dport` (default 0x3BC), `dly` (default 0x0300), `recv[5]`, `cnt[14]` (last state per button), `keymap[14]` (word: low = scancode, high bit0 = E0 prefix), `btnoff`/`btnmask` (byte/bit in recv, active-low)
 - `int2f`: multiplex ID `0xC9` (install check, AL=0 → 0xFF, BX=CS)
-- `isr8` (INT 8) or `isr70` (INT 70h, `timer = rtc`: calls BIOS handler first, re-enables PIE, polls every `RTCDIV`=56 ticks of 1024 Hz) → `dopoll`: `busy` reentrancy lock → `pollpad` → discard response unless `recv[2]==0x5A` (else a bad poll = all released → key flicker, seen in Lion King) → edge detection per button → `sendmake`/`sendbreak`; state is only committed on success (CF=0), otherwise retried next tick
-- `kbcbyte`: IBF wait → `out 64h,D2h` → IBF wait → `out 60h,scancode` → OBF wait; timeout → CF=1
+- `isr8` (INT 8: `pushf`+`call far` old handler first so IRQ0 is EOI'd and IRQ1 can deliver injected bytes, then `dopoll`, `iret`) or `isr70` (INT 70h, `timer = rtc`: calls BIOS handler first, re-enables PIE, polls every `RTCDIV`=56 ticks of 1024 Hz) → `dopoll`: `busy` reentrancy lock → `pollpad` → discard response unless `recv[2]==0x5A` (else a bad poll = all released → key flicker, seen in Lion King) → edge detection per button → `sendmake`/`sendbreak`; state is only committed on success (CF=0), otherwise retried next tick
+- `kbcbyte`: abort if OBF holds an unread keyboard byte (bit0 set, bit5 clear) → IBF wait → `out 64h,D2h` → IBF wait → `out 60h,scancode` → OBF wait (0x1000); timeout → CF=1
 - `pollpad`/`xchg`/`delay`: PSX protocol, poll `01 42 00 00 00`, LSB first; `recv[1]` = ID (0x41 digital, 0x73 analog), `recv[2]` = 0x5A (data marker), `recv[3]/[4]` = buttons
 
 Transient part: `install` (banner → `getini` → `parse` → `showini` → `doauto` → with `/T` run `testmode` and exit, else hook INT 2F + INT 8 (or INT 70h, unmask IRQ 8/2, set PIE) and go TSR), `unload` (/U, only if vectors still point to us), `parsecmd` (/U /T /? /H), `doauto`/`autodet`/`probe`/`initctl`/`ecpspp`/`dumpraw`, `testmode` (INT 10h screen, 14 buttons live as `*`/`.`, raw line, ESC quits), `getini` (INI name = program path from environment with .ini extension; if missing, `defini` is written), `parse`/`matchbtn`/`mapval`/`lcval`/`isdly`/`isport`/`streq`/`parsehex`.
