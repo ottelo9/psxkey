@@ -238,7 +238,10 @@ answers at all — the symptom is `raw: FF FF FF FF FF`, exactly as if nothing w
 in. `port = auto` therefore sweeps several loop counts per port
 (`0x300, 0x100, 0x80, 0x800, 0x1800, 0x4000`) and keeps the first one at which the pad
 answers 64 polls in a row without a single faulty response. A value that works only most of
-the time (the pad answers, but every tenth poll fails) is rejected.
+the time (the pad answers, but every tenth poll fails) is rejected. The polls are spaced about
+1 ms apart (timed with the refresh bit of port `61h`, independent of the CPU speed), and the
+pad gets about 20 ms to settle after power-up; polling back to back is too fast for some
+pads (most likely why an original Dual Shock 1 was not detected before).
 
 `delay = ...` in the INI forces a value and skips the search. It is meant for testing only
 (e.g. to compare values with the error counter of `/T`); in normal use leave it out and let

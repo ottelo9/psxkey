@@ -713,14 +713,13 @@ probe:                   ; CF=0, wenn an [dport] ein Pad antwortet
     mov dx,[dport]
     mov al,POWER|bATT|bCLK|bCMD
     out dx,al
-    mov cx,40            ; Einschwingzeit fuer die Pad-Elektronik
+    mov cx,20            ; ca. 20 ms Einschwingzeit fuer die Pad-Elektronik
 .w:
-    push cx
-    call delay
-    pop cx
+    call gap
     loop .w
     mov cx,3             ; erster Versuch weckt den Pad oft nur auf
 .t:
+    call gap
     push cx
     call pollpad
     pop cx
@@ -733,7 +732,8 @@ probe:                   ; CF=0, wenn an [dport] ein Pad antwortet
 .yes:
     mov cx,64            ; danach muessen 64 Abfragen in Folge fehlerfrei sein,
 .v:                      ; sonst ist das Timing nur grenzwertig
-    push cx
+    call gap             ; Pause wie im Betrieb: direkt hintereinander
+    push cx              ; vertragen viele Pads nicht (z.B. Dual Shock 1)
     call pollpad
     pop cx
     cmp byte [recv+2],0x5A
@@ -745,6 +745,37 @@ probe:                   ; CF=0, wenn an [dport] ein Pad antwortet
 .no:
     pop cx
     stc
+    ret
+
+gap:                     ; ca. 1 ms Pause, CPU-unabhaengig ueber das Refresh-Bit
+    cmp byte [norefr],0  ; (Port 61h Bit 4 wechselt alle ~15 us)
+    jne .r
+    push ax
+    push cx
+    push dx
+    mov dx,66            ; 66 Wechsel x 15 us = ca. 1 ms
+    in al,0x61
+    and al,0x10
+    mov ah,al
+.n:
+    mov cx,2000          ; Notausgang, falls das Bit nie wechselt
+.l:
+    in al,0x61
+    and al,0x10
+    cmp al,ah
+    jne .t
+    loop .l
+    mov byte [norefr],1  ; kein Refresh-Takt -> ab jetzt ohne Pause
+    jmp .x
+.t:
+    mov ah,al
+    dec dx
+    jnz .n
+.x:
+    pop dx
+    pop cx
+    pop ax
+.r:
     ret
 
 puthex16:                ; ax als vierstelligen Hexwert ausgeben
@@ -1414,6 +1445,7 @@ wfail   db 0
 wdly    db 0
 wtest   db 0
 tchr    db 0
+norefr  db 0
 dlytab  dw 0x0300,0x0100,0x0080,0x0800,0x1800,0x4000,0
 rawmsg  db "raw: ",'$'
 pollmsg db "polls: ",'$'
