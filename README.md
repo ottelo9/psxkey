@@ -22,6 +22,18 @@ boot mode **XMC** = HIMEM only). EMM386 works as well (tested on a Toshiba Satel
 with Project X, which needs EMS). It does not run in a Windows DOS box, where the port I/O is
 virtualized.
 
+## Contents
+
+- [Video](#video) · [How it works](#how-it-works)
+- [Usage](#usage) — [startup output](#startup-output), [test mode](#test-mode-t)
+- [The official PSXKEY adapter](#the-official-psxkey-psx-lpt-adapterconverter)
+- [Configuration](#configuration-psxkeyini) — [port = auto](#automatic-port-detection-port--auto),
+  [delay](#timing-delay-test-option), [timer = rtc](#games-that-take-over-the-timer-timer--rtc),
+  [example configs](#example-configs-per-game-ini), [LPT port mode](#configure-your-lpt-port-mode)
+- [PSX protocol](#psx-protocol) — [building the adapter](#building-the-adapter-on-your-own)
+- [Building](#building) · [Hardware / LPT wiring](#hardware--lpt-wiring-db25--psx-pad) — [3.3 V ports](#33-v-parallel-ports)
+- [Design notes](#design-notes--solved-problems) · [Known limitations](#known-limitations--ideas) · [Source map](#source-map-key-routines) · [Author](#author)
+
 ## Video
 [![Youtube](https://img.youtube.com/vi/OIvptmBVmj8/hqdefault.jpg)](https://www.youtube.com/watch?v=OIvptmBVmj8)
 
