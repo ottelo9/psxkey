@@ -566,7 +566,10 @@ showini:                 ; Pfad und Inhalt der geladenen INI ausgeben
 
 doauto:                  ; Auto-Erkennung ausfuehren und Port melden
     cmp byte [wauto],0
-    je .show
+    jne .auto
+    call pwrcyc          ; fester Port: Pad trotzdem einmal sauber neu starten
+    jmp .show
+.auto:
     call autodet
     jnc .show
     mov byte [wfail],1
@@ -598,6 +601,32 @@ doauto:                  ; Auto-Erkennung ausfuehren und Port melden
     je .d
     call dumpraw
 .d:
+    ret
+
+pwrcyc:                  ; Pad-Versorgung (D4-D7) ca. 330 ms abschalten, dann wieder an.
+    push ax              ; Manche Pads (z.B. Hori) bekommen beim Booten des Rechners
+    push cx              ; keinen sauberen Power-on-Reset und antworten erst nach
+    push dx              ; Ab- und Anstecken - das wird hier nachgebildet.
+    push es
+    call initctl
+    mov dx,[dport]
+    xor al,al            ; alle Datenleitungen low = Pad stromlos
+    out dx,al
+    xor ax,ax
+    mov es,ax
+    mov cx,6             ; 6 Timer-Ticks = ca. 330 ms, damit die Kondensatoren entladen
+.t:
+    mov ax,[es:0x46C]
+.w:
+    cmp ax,[es:0x46C]
+    je .w
+    loop .t
+    mov al,POWER|bATT|bCLK|bCMD
+    out dx,al            ; wieder einschalten (Ruhezustand)
+    pop es
+    pop dx
+    pop cx
+    pop ax
     ret
 
 initctl:                 ; Port in einen sauberen SPP-Zustand bringen
@@ -667,6 +696,7 @@ autodet:                 ; LPT-Basisadressen aus dem BIOS-Datenbereich testen
     mov di,ax
 .p:
     mov [dport],ax
+    call pwrcyc          ; Pad an diesem Port einmal aus- und einschalten
     cmp byte [wdly],0    ; feste Vorgabe aus der INI nicht ueberschreiben
     je .sweep
     call probe

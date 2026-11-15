@@ -255,6 +255,12 @@ the time (the pad answers, but every tenth poll fails) is rejected. The polls ar
 pad gets about 20 ms to settle after power-up; polling back to back is too fast for some
 pads (most likely why an original Dual Shock 1 was not detected before).
 
+Before probing a port (and also with a fixed `port = ...`), PSXKEY switches the pad's supply
+off for about 330 ms (all data lines low) and on again. Some pads (e.g. a Hori Analog Shindou)
+do not get a clean power-on reset while the PC boots, because the BIOS toggles the parallel
+port lines; they only answered after being unplugged and plugged in again. This only works if
+the pad is powered from the LPT data lines (pins 6–9), not from an external supply.
+
 `delay = ...` in the INI forces a value and skips the search. It is meant for testing only
 (e.g. to compare values with the error counter of `/T`); in normal use leave it out and let
 `port = auto` pick the value. The startup line shows which value was chosen.
