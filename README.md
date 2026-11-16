@@ -130,8 +130,8 @@ If `errors` keeps rising, try a larger `delay` (test option, see below).
 ## The official PSXKEY PSX-LPT-Adapter/Converter
 <img width="400" height="289" alt="image" src="https://github.com/user-attachments/assets/4f3fb4ec-7f5a-48d9-8701-6ea7d3fd2de1" />
 
-I’m selling a ready-2-use adapter/converter that I designed and built myself. You can buy it on [eBay](https://ebay.us/JTHeW6)*affiliate link* or
-[contact me](https://ottelo.jimdofree.com/kontakt/). Your purchase supports my work :) .  
+I’m selling a ready-2-use adapter/converter that I designed and built myself. You can buy it on [eBay](https://ebay.us/JTHeW6) (only Germany) *affiliate link* or
+[contact me](https://ottelo.jimdofree.com/kontakt/) for International shipping. Your purchase supports my work :) .  
 
 The adapter is powered from the parallel port's data pins through 4 diodes, which yields only a few milliamps and supply the controller from a 3.3 V LDO. 
 The three lines "CLK, CMD and ATT" go through a level shifter that runs off that same rail. So nothing the adapter actively drives can exceed 3.3 V. 
