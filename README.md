@@ -333,8 +333,9 @@ worked; with *Bi-directional* the ANALOG button toggles normally). If the pad is
 detected or acts up, try SPP and Bi-directional/PS/2. If PSXKEY finds an ECP port, it switches
 it to PS/2 mode itself.
 
-Some boards deliver too little current on the data pins. If a pad (e.g. a Dual Shock 1) is
-not detected or drops out, power it from an external 3.3 V supply.
+**Power:** the pad is powered from the data pins, and depending on the PC/laptop each pin
+only supplies a few mA. If a pad (e.g. a Dual Shock 1) is not detected or drops out, power
+it from an external 3.3 V supply.
 
 ## PSX protocol
 

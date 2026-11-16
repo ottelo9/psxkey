@@ -139,6 +139,15 @@ controller level. That is why it also works with games that read the keyboard th
   controller.</figcaption>
 </figure>
 
+<div class="note">
+  <span data-lang="de">Der Parallelport liefert je nach PC/Laptop nur wenige mA Strom. Wird
+  der Controller nicht erkannt oder f&auml;llt er aus, hilft eine externe 3,3-V-Versorgung.
+  Im BIOS den Parallelport am besten auf <em>Bi-Directional</em> (PS/2) oder <em>SPP</em> stellen.</span>
+  <span data-lang="en">Depending on the PC/laptop, the parallel port only supplies a few mA.
+  If the pad is not detected or drops out, use an external 3.3 V supply. In the BIOS, set the
+  parallel port to <em>Bi-Directional</em> (PS/2) or <em>SPP</em>.</span>
+</div>
+
 <h2 data-lang="de">Schritt f&uuml;r Schritt</h2>
 <h2 data-lang="en">Step by step</h2>
 
@@ -202,6 +211,7 @@ spielen.</p>
 
 <ul data-lang="de">
   <li><code>PSXKEY</code> &mdash; installieren</li>
+  <li><code>PSXKEY SPIEL.INI</code> &mdash; mit einer eigenen INI starten (z.B. eine pro Spiel)</li>
   <li><code>PSXKEY /T</code> &mdash; <strong>Test:</strong> alle Tasten live anzeigen
       (<kbd>ESC</kbd> beendet). Der schnellste Weg zu pr&uuml;fen, ob Adapter und
       Controller funktionieren.</li>
@@ -210,6 +220,7 @@ spielen.</p>
 </ul>
 <ul data-lang="en">
   <li><code>PSXKEY</code> &mdash; install</li>
+  <li><code>PSXKEY GAME.INI</code> &mdash; start with your own INI (e.g. one per game)</li>
   <li><code>PSXKEY /T</code> &mdash; <strong>test:</strong> show all buttons live
       (<kbd>ESC</kbd> quits). The quickest way to check adapter and controller.</li>
   <li><code>PSXKEY /U</code> &mdash; unload</li>
@@ -237,13 +248,30 @@ cross = x
 circle = o
 start = return
 up = up
-down = down</code></pre>
+down = down
+select = pause
+l1 = ctrl+e</code></pre>
+
+<p data-lang="de">Tastenkombinationen auf einer Taste gehen mit <code>ctrl+</code>,
+<code>alt+</code> und <code>shift+</code> vor der Taste, z.B. <code>l1 = ctrl+e</code>.
+Fertige INIs f&uuml;r einige Spiele liegen im Ordner <code>ini/</code> auf GitHub.</p>
+<p data-lang="en">Key combos on one button work with <code>ctrl+</code>, <code>alt+</code>
+and <code>shift+</code> in front of the key, e.g. <code>l1 = ctrl+e</code>. Ready-made INIs
+for some games are in the <code>ini/</code> folder on GitHub.</p>
 
 <div class="note">
   <span data-lang="de">Reagiert der Controller in einem Spiel nicht, hilft meist
   <code>timer = rtc</code> in der INI &mdash; manche Spiele &uuml;bernehmen den System-Timer.</span>
   <span data-lang="en">If the pad does not respond in a game, <code>timer = rtc</code> in the
   INI usually fixes it &mdash; some games take over the system timer.</span>
+</div>
+
+<div class="note">
+  <span data-lang="de">Manche Controller (z.B. Hori) h&auml;ngen sich auf, wenn sie beim
+  Hochfahren des PCs schon eingesteckt sind. Dann den Controller vor dem Start von PSXKEY
+  einmal ab- und wieder anstecken.</span>
+  <span data-lang="en">Some pads (e.g. Hori) hang if they are plugged in while the PC
+  boots. Unplug and plug the pad in again before starting PSXKEY.</span>
 </div>
 
 <footer>
