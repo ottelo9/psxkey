@@ -28,6 +28,8 @@ cnt      times 14 db 0
 keymap   times 14 dw 0
 btnoff   db 3,3,3,3,3,3,4,4,4,4,4,4,4,4
 btnmask  db 0x10,0x40,0x80,0x20,0x08,0x01,0x40,0x20,0x10,0x80,0x04,0x01,0x08,0x02
+pseq     db 0xE1,0x1D,0x45,0xE1,0x9D,0xC5   ; PAUSE-Sequenz
+modtab   db 0x1D,0x38,0x2A                  ; Strg, Alt, Shift (links)
 
 ; ---------------- resident INT 2Fh (multiplex) ----------------
 int2f:
@@ -140,6 +142,11 @@ sendmake:
     mov ax,[keymap+bx]
     or al,al
     jz .ok
+    test ah,2
+    jnz .pause
+    xor bh,bh            ; zuerst Strg/Alt/Shift druecken (Kombination auf einer Taste)
+    call sendmods
+    jc .fail
     test ah,1
     jz .noe
     push ax
@@ -150,6 +157,16 @@ sendmake:
 .noe:
     call kbcbyte
     jc .fail
+    jmp .ok
+.pause:                  ; PAUSE: E1 1D 45 E1 9D C5 beim Druecken, kein Break
+    xor bx,bx
+.pl:
+    mov al,[pseq+bx]
+    call kbcbyte
+    jc .fail
+    inc bx
+    cmp bx,6
+    jb .pl
 .ok:
     pop bx
     pop ax
@@ -169,6 +186,8 @@ sendbreak:
     mov ax,[keymap+bx]
     or al,al
     jz .ok
+    test ah,2            ; PAUSE hat keinen Break-Code
+    jnz .ok
     test ah,1
     jz .noe
     push ax
@@ -180,6 +199,9 @@ sendbreak:
     or al,0x80
     call kbcbyte
     jc .fail
+    mov bh,0x80          ; danach Strg/Alt/Shift loslassen
+    call sendmods
+    jc .fail
 .ok:
     pop bx
     pop ax
@@ -189,6 +211,32 @@ sendbreak:
     pop bx
     pop ax
     stc
+    ret
+
+sendmods:                ; ah = Keymap-Highbyte (Bit2 Strg, Bit3 Alt, Bit4 Shift),
+    push ax              ; bh = 0 Make / 0x80 Break. CF=1 Abbruch
+    push cx
+    push si
+    mov cl,ah
+    mov ch,4
+    xor si,si
+.l:
+    test cl,ch
+    jz .n
+    mov al,[modtab+si]
+    or al,bh
+    call kbcbyte
+    jc .x
+.n:
+    inc si
+    shl ch,1
+    cmp ch,0x20
+    jb .l
+    clc
+.x:
+    pop si
+    pop cx
+    pop ax
     ret
 
 kbcbyte:                 ; al=scancode. CF=0 ok, CF=1 abort
@@ -492,9 +540,33 @@ parsecmd:
     je .d
     cmp al,13
     je .d
+    cmp al,' '
+    jbe .n               ; Leerzeichen/Tab
     cmp al,'/'
-    jne .n
-    mov al,[si+1]
+    je .sw
+    mov di,inifile       ; alles andere = Name der INI-Datei
+    mov cx,79
+.cp:
+    mov [di],al
+    inc di
+    inc si
+    mov al,[si]
+    cmp al,' '           ; Ende bei Leerzeichen, Tab, CR, 0
+    jbe .ce
+    cmp al,'/'
+    je .ce
+    loop .cp
+.ce:
+    mov byte [di],0
+    mov byte [wini],1
+    jmp .p
+.sw:
+    inc si
+    mov al,[si]
+    or al,al
+    je .d
+    cmp al,13
+    je .d
     cmp al,'a'
     jb .u
     cmp al,'z'
@@ -566,10 +638,7 @@ showini:                 ; Pfad und Inhalt der geladenen INI ausgeben
 
 doauto:                  ; Auto-Erkennung ausfuehren und Port melden
     cmp byte [wauto],0
-    jne .auto
-    call pwrcyc          ; fester Port: Pad trotzdem einmal sauber neu starten
-    jmp .show
-.auto:
+    je .show
     call autodet
     jnc .show
     mov byte [wfail],1
@@ -603,32 +672,6 @@ doauto:                  ; Auto-Erkennung ausfuehren und Port melden
 .d:
     ret
 
-pwrcyc:                  ; Pad-Versorgung (D4-D7) ca. 330 ms abschalten, dann wieder an.
-    push ax              ; Manche Pads (z.B. Hori) bekommen beim Booten des Rechners
-    push cx              ; keinen sauberen Power-on-Reset und antworten erst nach
-    push dx              ; Ab- und Anstecken - das wird hier nachgebildet.
-    push es
-    call initctl
-    mov dx,[dport]
-    xor al,al            ; alle Datenleitungen low = Pad stromlos
-    out dx,al
-    xor ax,ax
-    mov es,ax
-    mov cx,6             ; 6 Timer-Ticks = ca. 330 ms, damit die Kondensatoren entladen
-.t:
-    mov ax,[es:0x46C]
-.w:
-    cmp ax,[es:0x46C]
-    je .w
-    loop .t
-    mov al,POWER|bATT|bCLK|bCMD
-    out dx,al            ; wieder einschalten (Ruhezustand)
-    pop es
-    pop dx
-    pop cx
-    pop ax
-    ret
-
 initctl:                 ; Port in einen sauberen SPP-Zustand bringen
     call ecpspp
     push ax
@@ -641,7 +684,7 @@ initctl:                 ; Port in einen sauberen SPP-Zustand bringen
     pop ax
     ret
 
-ecpspp:                  ; ECP-Port erkennen und auf Mode 000 (SPP) stellen
+ecpspp:                  ; ECP-Port erkennen und auf Mode 001 (PS/2) stellen
     push ax
     push dx
     mov dx,[dport]
@@ -652,8 +695,9 @@ ecpspp:                  ; ECP-Port erkennen und auf Mode 000 (SPP) stellen
     in al,dx
     cmp al,0x35          ; ... liest sich als 0x35 zurueck, wenn ECP vorhanden
     jne .no
-    xor al,al            ; Mode 000 = SPP, FIFO aus
-    out dx,al
+    mov al,0x34          ; Mode 001 = PS/2 (bidirektional, FIFO aus). Mit Mode 000 (SPP)
+    out dx,al            ; gab es Probleme (DS1-Analog-LED, M5ATD im SPP-Modus).
+                         ; Richtung bleibt Ausgang, da initctl Bit 5 im Control loescht.
 .no:
     pop dx
     pop ax
@@ -696,7 +740,6 @@ autodet:                 ; LPT-Basisadressen aus dem BIOS-Datenbereich testen
     mov di,ax
 .p:
     mov [dport],ax
-    call pwrcyc          ; Pad an diesem Port einmal aus- und einschalten
     cmp byte [wdly],0    ; feste Vorgabe aus der INI nicht ueberschreiben
     je .sweep
     call probe
@@ -951,6 +994,8 @@ testmode:                ; alle Tasten live anzeigen, ESC beendet
     ret
 
 getini:
+    cmp byte [wini],0    ; INI per Argument angegeben -> nur diese oeffnen
+    jne .open
     mov ax,[0x2C]
     mov es,ax
     xor di,di
@@ -988,10 +1033,15 @@ getini:
     mov byte [di],'i'
     inc di
     mov byte [di],0
+.open:
     mov dx,inifile
     mov ax,0x3D00
     int 0x21
-    jc .create
+    jnc .rd
+    cmp byte [wini],0    ; angegebene Datei fehlt -> keine Vorgabe anlegen
+    jne .fail
+    jmp .create
+.rd:
     mov bx,ax
     mov dx,filebuf
     mov cx,4000
@@ -1126,8 +1176,11 @@ parse:
     je .ev
     cmp al,','
     je .ev
+    cmp di,valbuf+39     ; Pufferende: Rest abschneiden
+    jae .rv2
     mov [di],al
     inc di
+.rv2:
     inc si
     jmp .rv1
 .ev:
@@ -1178,7 +1231,14 @@ parse:
     je .nl
     push bx
     push si
+    call modpre          ; "ctrl+" usw. abtrennen -> cl = Modifier-Bits
+    push cx
     call mapval
+    pop cx
+    or al,al             ; unbekannte Taste bleibt 0
+    jz .nmod
+    or ah,cl
+.nmod:
     pop si
     pop bx
     mov di,bx
@@ -1311,6 +1371,48 @@ mapval:
     xor ax,ax
     ret
 
+modpre:                  ; fuehrende "ctrl+", "alt+", "shift+" aus valbuf entfernen,
+    call lcval           ; cl = Modifier-Bits fuer das Keymap-Highbyte
+    xor cl,cl
+.l:
+    mov si,modnames
+.m:
+    cmp byte [si],0
+    je .d
+    mov di,valbuf
+.c:
+    mov al,[si]
+    or al,al
+    jz .hit
+    cmp al,[di]
+    jne .nx
+    inc si
+    inc di
+    jmp .c
+.nx:
+    mov al,[si]
+    inc si
+    or al,al
+    jnz .nx
+    inc si               ; Bit-Byte ueberspringen
+    jmp .m
+.hit:
+    or cl,[si+1]
+    mov si,di            ; Rest nach vorne schieben
+    mov di,valbuf
+.cp:
+    mov al,[si]
+    mov [di],al
+    inc si
+    inc di
+    or al,al
+    jnz .cp
+    jmp .l
+.d:
+    ret
+
+modnames db "ctrl+",0,4,"alt+",0,8,"shift+",0,16,0
+
 lcval:
     push si
     mov si,valbuf
@@ -1440,7 +1542,7 @@ nvtab db "space",0,0x39,0,"return",0,0x1C,0,"enter",0,0x1C,0,"esc",0,0x01,0,"tab
       db "num0",0,0x52,0,"num1",0,0x4F,0,"num2",0,0x50,0,"num3",0,0x51,0,"num4",0,0x4B,0
       db "num5",0,0x4C,0,"num6",0,0x4D,0,"num7",0,0x47,0,"num8",0,0x48,0,"num9",0,0x49,0
       db "num.",0,0x53,0,"num+",0,0x4E,0,"num-",0,0x4A,0,"num*",0,0x37,0,"num/",0,0x35,1
-      db "numenter",0,0x1C,1,"backspace",0,0x0E,0
+      db "numenter",0,0x1C,1,"backspace",0,0x0E,0,"pause",0,0x45,2
       db "f1",0,0x3B,0,"f2",0,0x3C,0,"f3",0,0x3D,0,"f4",0,0x3E,0,"f5",0,0x3F,0,"f6",0,0x40,0
       db "f7",0,0x41,0,"f8",0,0x42,0,"f9",0,0x43,0,"f10",0,0x44,0,"f11",0,0x57,0,"f12",0,0x58,0,0
 
@@ -1453,10 +1555,11 @@ cantmsg  db "psxkey: cannot unload (another TSR loaded after).",13,10,'$'
 noini    db "psxkey: .ini not found, no mapping.",13,10,'$'
 helptxt  db "PSXKEY - PSX pad on LPT -> keyboard (MS-DOS)   build ",VER," ",TIM,13,10
          db "by ottelo   ottelo.jimdofree.com   github.com/ottelo9",13,10,13,10
-         db "Usage:  PSXKEY      install (reads PSXKEY.INI)",13,10
-         db "        PSXKEY /U   unload",13,10
-         db "        PSXKEY /T   test mode (ESC quits)",13,10
-         db "        PSXKEY /?   this help",13,10,13,10
+         db "Usage:  PSXKEY           install (reads PSXKEY.INI)",13,10
+         db "        PSXKEY GAME.INI  install with another INI file",13,10
+         db "        PSXKEY /U        unload",13,10
+         db "        PSXKEY /T        test mode (ESC quits)",13,10
+         db "        PSXKEY /?        this help",13,10,13,10
          db "PSXKEY.INI:",13,10
          db "  port  = auto | 0x378   LPT port",13,10
          db "  delay = 0x800          force pad timing (test only)",13,10
@@ -1464,7 +1567,8 @@ helptxt  db "PSXKEY - PSX pad on LPT -> keyboard (MS-DOS)   build ",VER," ",TIM,
          db "  cross = x              button = key, one per line",13,10,13,10
          db "Buttons: up down left right start select cross circle triangle box l1 l2 r1 r2",13,10
          db "Keys:    a-z 0-9 space return esc tab backspace up down left right",13,10
-         db "         ctrl alt shift f1-f12 num0-num9 num. num+ num- num* num/ numenter",13,10,'$'
+         db "         ctrl alt shift f1-f12 num0-num9 num. num+ num- num* num/ numenter",13,10
+         db "         pause    combos on one button: cross = ctrl+e, l1 = alt+shift+x",13,10,'$'
 
 madedef db 0
 defmsg  db "psxkey: PSXKEY.INI not found - created default.",13,10,'$'
@@ -1511,8 +1615,9 @@ defini_len equ defini_end - defini
 
 wunload db 0
 whelp   db 0
+wini    db 0
 resseg  dw 0
 inifile times 80 db 0
 tokbuf  times 20 db 0
-valbuf  times 20 db 0
+valbuf  times 40 db 0
 filebuf times 4096 db 0

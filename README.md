@@ -55,6 +55,7 @@ enough for those titles.
 | Command      | Action                                                                    |
 |--------------|---------------------------------------------------------------------------|
 | `PSXKEY`     | Install the driver (reads [PSXKEY.INI](#configuration-psxkeyini)).                                   |
+| `PSXKEY GAME.INI` | Install with another INI file (e.g. one per game). Works with `/T` too.  |
 | `PSXKEY /U`  | Unload the driver.                                                         |
 | `PSXKEY /?`  | Show help (commands, INI options, buttons and keys).                       |
 | `PSXKEY /T`  | Test mode: show all buttons live, without installing.                      |
@@ -166,6 +167,7 @@ Both the path and the contents of the INI in effect are printed at startup.
 | `esc` | Esc | `01` |
 | `tab` | Tab | `0F` |
 | `backspace` | Backspace | `0E` |
+| `pause` | Pause | `E1 1D 45 E1 9D C5` on press, nothing on release |
 | `f1` … `f10` | function keys | `3B` … `44` |
 | `f11`, `f12` | function keys | `57`, `58` |
 | `up` `down` `left` `right` | cursor keys | `E0 48`, `E0 50`, `E0 4B`, `E0 4D` |
@@ -181,8 +183,12 @@ Both the path and the contents of the INI in effect are printed at startup.
 | `numenter` | numpad Enter | `E0 1C` |
 
 Letters are physical key positions (US layout), so with a German keyboard driver `y` and
-`z` are swapped. Punctuation keys and right-hand Ctrl/Alt are not supported yet. A key combination on a single button (e.g. `ctrl+e`) is not
-possible; map one button to `ctrl` and another to `e` instead.
+`z` are swapped. Punctuation keys and right-hand Ctrl/Alt are not supported yet.
+
+**Key combinations on one button:** put `ctrl+`, `alt+` and/or `shift+` in front of the key,
+without spaces, e.g. `cross = ctrl+e` or `l1 = alt+shift+x`. On press PSXKEY sends the
+modifiers first and then the key; on release the key first and then the modifiers.
+Alternatively map one button to `ctrl` and another to `e` and hold both.
 
 Example (also the generated default):
 
@@ -255,11 +261,9 @@ the time (the pad answers, but every tenth poll fails) is rejected. The polls ar
 pad gets about 20 ms to settle after power-up; polling back to back is too fast for some
 pads (most likely why an original Dual Shock 1 was not detected before).
 
-Before probing a port (and also with a fixed `port = ...`), PSXKEY switches the pad's supply
-off for about 330 ms (all data lines low) and on again. Some pads (e.g. a Hori Analog Shindou)
-do not get a clean power-on reset while the PC boots, because the BIOS toggles the parallel
-port lines; they only answered after being unplugged and plugged in again. This only works if
-the pad is powered from the LPT data lines (pins 6–9), not from an external supply.
+Some pads (e.g. a Hori Analog Shindou) hang if they are plugged in while the PC boots. Unplug
+and plug them in again before starting PSXKEY. Switching the pad's supply off and on from
+software did not help: the pad stays partly powered through the DATA line's pull-up.
 
 `delay = ...` in the INI forces a value and skips the search. It is meant for testing only
 (e.g. to compare values with the error counter of `/T`); in normal use leave it out and let
@@ -281,7 +285,8 @@ By default PSXKEY polls the pad from the system timer (INT 8, 18.2 Hz) and passe
 on to the previous handler. Some games install their own INT 8 handler, reprogram the timer
 and never call the old one — then PSXKEY never runs and the pad does nothing in that game.
 Known examples are the East Point Software ports **Project X** and **The Lion King**: both
-sync the timer to the VGA retrace, send their own EOI and return with `iret`.
+sync the timer to the VGA retrace, send their own EOI and return with `iret`. **Super Street
+Fighter II Turbo** (v1.5) also needs `timer = rtc`.
 
 ```ini
 timer = rtc
@@ -297,13 +302,15 @@ startup line then shows `timer: rtc`.
 
 ### Example configs per game (`ini/`)
 
-`ini/` holds ready-made `PSXKEY.INI` files for individual games. The comment at the top of
-each file says how to boot DOS for that game. Copy the file next to `PSXKEY.COM`.
+`ini/` holds ready-made INI files for individual games. The comment at the top of each
+file says how to boot DOS for that game. Copy the file next to `PSXKEY.COM` and pass its
+name, e.g. `PSXKEY SSF2T.INI`.
 
-| Game | Boot menu | Notes |
-|---|---|---|
-| The Lion King | 5 (XM) | DOS/4GW, needs `timer = rtc` |
-| Project X | 4 (EM) | needs EMS (EMM386), needs `timer = rtc` |
+| Game | File | Boot menu | Notes |
+|---|---|---|---|
+| The Lion King | `LIONKING.INI` | 5 (XM) | DOS/4GW, needs `timer = rtc` |
+| Project X | `PROJECTX.INI` | 4 (EM) | needs EMS (EMM386), needs `timer = rtc` |
+| Super Street Fighter II Turbo | `SSF2T.INI` | 8 (X) | needs `timer = rtc`; Start = Pause, Select = Alt+X (quit fight) |
 
 The boot menu numbers refer to `restart_in_ms-dos_mode/`: a Windows 98 PIF that restarts
 into real MS-DOS mode with a boot menu (HIMEM, EMM386, mouse, CD-ROM in different
@@ -319,9 +326,15 @@ by Phil's Computer Lab.
 touches the control register at base + 2, so it never enables bidirectional mode and never
 switches direction — the data lines always drive.
 
-*EPP* and *ECP* usually work too, because those ports come up in SPP-compatible mode after
-reset, but they add a FIFO and mode logic that some chipsets (and some ECP DMA drivers)
-leave in a non-compatible state. If the pad is not detected, SPP is the first thing to try.
+*Bi-directional* (also called *PS/2*) works as well and was the better choice in tests: on a
+Biostar M5ATD several pads only worked reliably in PS/2 mode, and on a ThinkPad 320CDS the
+BIOS setting *ECP* made a Dual Shock 1 drop out of analog mode right away (the buttons still
+worked; with *Bi-directional* the ANALOG button toggles normally). If the pad is not
+detected or acts up, try SPP and Bi-directional/PS/2. If PSXKEY finds an ECP port, it switches
+it to PS/2 mode itself.
+
+Some boards deliver too little current on the data pins. If a pad (e.g. a Dual Shock 1) is
+not detected or drops out, power it from an external 3.3 V supply.
 
 ## PSX protocol
 
@@ -453,9 +466,9 @@ resident footprint stays at 466 bytes / 30 paragraphs.
 - `testmode` / `gotoxy` — the `/T` live button display.
 - Everything before the `install` label is resident; the TSR keep size is the `install`
   offset in paragraphs. Everything added for detection and testing sits in the transient
-  part, so the resident footprint is 543 bytes / 34 paragraphs (466 originally, +3 for the
+  part, so the resident footprint is 632 bytes / 40 paragraphs (466 originally, +3 for the
   variable delay counter, +57 for the RTC handler, +7 for discarding faulty responses,
-  +10 for the INT 8 chain order and the unread-byte check).
+  +10 for the INT 8 chain order and the unread-byte check, +35 for the Pause key, +54 for key combinations on one button).
 
 ## Author
 

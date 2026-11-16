@@ -18,10 +18,15 @@ CONFIG.SYS/AUTOEXEC.BAT and a boot menu:
 "Mouse" also loads the USB driver `USBDDOS.EXE /HID`. The PIF loads `KEYB GR`
 (German keyboard layout); change it in the PIF properties if needed.
 
+The PIF replaces the normal AUTOEXEC.BAT, so a `SET BLASTER=...` line from there is
+not set in MS-DOS mode. The PIF calls `C:\WINDOWS\DOSSTART.BAT` first; put the sound
+card init and the BLASTER variable for that machine there, e.g.
+`SET BLASTER=A220 I5 D1 T4`. Without it, many games find no Sound Blaster.
+
 Setup: copy `C/Drivers` to `C:\DRIVERS` on the Windows 98 machine and the PIF to the
 desktop (or the game folder). Double-click it to restart into DOS.
 
-Which menu item a game needs is noted at the top of its `PSXKEY.INI` in `ini/`.
+Which menu item a game needs is noted at the top of its INI file in `ini/`.
 
 Source: based on "MS-DOS Mode Super Easy" by Phil's Computer Lab,
 <https://www.philscomputerlab.com/ms-dos-mode-super-easy.html>
