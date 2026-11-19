@@ -26,7 +26,7 @@ virtualized.
 
 - [Video](#video) · [How it works](#how-it-works)
 - [Usage](#usage) — [startup output](#startup-output), [test mode](#test-mode-t)
-- [The official PSXKEY adapter](#the-official-psxkey-psx-lpt-adapterconverter)
+- [GET the official PSXKEY adapter](#the-official-psxkey-psx-lpt-adapterconverter)
 - [Configuration](#configuration-psxkeyini) — [port = auto](#automatic-port-detection-port--auto),
   [delay](#timing-delay-test-option), [timer = rtc](#games-that-take-over-the-timer-timer--rtc),
   [example configs](#example-configs-per-game-ini), [LPT port mode](#configure-your-lpt-port-mode)
