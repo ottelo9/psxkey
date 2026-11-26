@@ -11,7 +11,10 @@
   </tr>
 </table>
 
-<a href="https://ottelo9.github.io/psxkey/">WIKI/HELP in German and English</a>
+<p align="center">
+  <a href="https://ottelo9.github.io/psxkey/"><img src="https://img.shields.io/badge/WIKI%20%2F%20HELP-Deutsch%20%7C%20English-b4451f?style=for-the-badge" alt="WIKI / HELP in German and English"></a>
+  <a href="https://github.com/ottelo9/psxkey/releases/latest"><img src="https://img.shields.io/badge/Download-PSXKEY.COM-24292f?style=for-the-badge" alt="Download PSXKEY"></a>
+</p>
 
 PSXKEY is a very small program (resident driver - TSR) for MS-DOS that reads a **PlayStation (PSX/PS1/PS2)
 controller through the parallel (LPT) port** and injects the mapped buttons as **keyboard
@@ -32,7 +35,7 @@ virtualized.
   [example configs](#example-configs-per-game-ini), [LPT port mode](#configure-your-lpt-port-mode)
 - [PSX protocol](#psx-protocol) — [building the adapter](#building-the-adapter-on-your-own)
 - [Building](#building) · [Hardware / LPT wiring](#hardware--lpt-wiring-db25--psx-pad) — [3.3 V ports](#33-v-parallel-ports)
-- [Design notes](#design-notes--solved-problems) · [Known limitations](#known-limitations--ideas) · [Source map](#source-map-key-routines) · [Author](#author)
+- [Design notes](#design-notes--solved-problems) · [Known issues](#known-issues) · [Known limitations](#known-limitations--ideas) · [Source map](#source-map-key-routines) · [Author & links](#author--links)
 
 ## Video
 [![Youtube](https://img.youtube.com/vi/OIvptmBVmj8/hqdefault.jpg)](https://www.youtube.com/watch?v=OIvptmBVmj8)
@@ -443,6 +446,19 @@ resident footprint stays at 466 bytes / 30 paragraphs.
   numpad codes instead, change the arrows' ext flag in `nvtab` from `1` to `0`.
 - ASCII values are irrelevant (INT 9 uses scancodes); letters are lower case.
 
+## Known issues
+
+- **HDPMI32I + SBEMU:** with both loaded, games that need `timer = rtc` (The Lion King,
+  Project X) don't get the pad's keys and the PC speaker beeps (BIOS keyboard buffer full).
+  Games without `timer = rtc` (e.g. Bust a Move) work. HIMEM alone or JEMMEX without SBEMU
+  are fine. Not fixed yet.
+- **Pad not detected after restarting from Windows:** on some boards Windows leaves the
+  parallel port in a strange state (once the PC even hung with beeps before POST). Switch
+  the PC off and on again (cold boot); after that, and after reboots from DOS, the pad was
+  detected every time.
+- **Hori pads** may hang if they are plugged in while the PC boots. Unplug and plug them in
+  again before starting PSXKEY.
+
 ## Known limitations / ideas
 
 - **Analog pad** (ID `0x73`) returns 6 data bytes; the button bits stay in `recv[3]`/`recv[4]`,
@@ -471,6 +487,9 @@ resident footprint stays at 466 bytes / 30 paragraphs.
   variable delay counter, +57 for the RTC handler, +7 for discarding faulty responses,
   +10 for the INT 8 chain order and the unread-byte check, +35 for the Pause key, +54 for key combinations on one button).
 
-## Author
+## Author & links
 
 ottelo — [ottelo.jimdofree.com](https://ottelo.jimdofree.com) · [github.com/ottelo9](https://github.com/ottelo9)
+
+- Help page: [ottelo9.github.io/psxkey](https://ottelo9.github.io/psxkey/)
+- Forum thread (feedback, questions, test reports): [VOGONS](https://www.vogons.org/viewtopic.php?p=1459333)
