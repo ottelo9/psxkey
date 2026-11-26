@@ -133,7 +133,7 @@ If `errors` keeps rising, try a larger `delay` (test option, see below).
 ## The official PSXKEY PSX-LPT-Adapter/Converter
 <img width="400" height="289" alt="image" src="https://github.com/user-attachments/assets/4f3fb4ec-7f5a-48d9-8701-6ea7d3fd2de1" />
 
-I’m selling a ready-2-use adapter/converter that I designed and built myself. You can buy it on ~~[eBay](https://ebay.us/JTHeW6)~~ [Kleinanzeigen (German page)](https://www.kleinanzeigen.de/s-anzeige/psx-ps1-ps2-controller-adapter-fuer-dos-pcs-lpt-port-psxkey-/3576373158-225-3223) *affiliate link* or
+I’m selling a ready-2-use adapter/converter that I designed and built myself. You can buy it on ~~[eBay](https://ebay.us/JTHeW6)~~ [Kleinanzeigen (German page)](https://www.kleinanzeigen.de/s-anzeige/psx-ps1-ps2-controller-adapter-fuer-dos-pcs-lpt-port-psxkey-/3576373158-225-3223) or
 [contact me](https://ottelo.jimdofree.com/kontakt/) for International shipping. Your purchase supports my work :) .  
 
 The adapter is powered from the parallel port's data pins through 4 diodes, which yields only a few milliamps and supply the controller from a 3.3 V LDO. 
