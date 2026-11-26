@@ -12,8 +12,9 @@
 </table>
 
 <p align="center">
-  <a href="https://ottelo9.github.io/psxkey/"><img src="https://img.shields.io/badge/WIKI%20%2F%20HELP-Deutsch%20%7C%20English-b4451f?style=for-the-badge" alt="WIKI / HELP in German and English"></a>
+  <a href="https://ottelo9.github.io/psxkey/"><img src="https://img.shields.io/badge/WIKI%20%7C%20HELP-Deutsch%20%7C%20English-b4451f?style=for-the-badge" alt="WIKI / HELP in German and English"></a>
   <a href="https://github.com/ottelo9/psxkey/releases/latest"><img src="https://img.shields.io/badge/Download-PSXKEY.COM-24292f?style=for-the-badge" alt="Download PSXKEY"></a>
+  <a href="https://tooomm.github.io/github-release-stats/?username=ottelo9&repository=psxkey"><img src="https://img.shields.io/github/downloads/ottelo9/psxkey/total?logo=github&style=for-the-badge" alt="DL Counter"></a>
 </p>
 
 PSXKEY is a very small program (resident driver - TSR) for MS-DOS that reads a **PlayStation (PSX/PS1/PS2)
