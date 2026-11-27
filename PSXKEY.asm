@@ -8,6 +8,7 @@ bATT  equ 0x02
 bCLK  equ 0x04
 MPXID equ 0xC9
 RTCDIV equ 56              ; RTC 1024 Hz / 56 = ca. 18 Hz Abfragerate
+QMASK  equ 31              ; Warteschlange 32 Bytes
 
 %substr VER __?DATE?__,3,8      ; Build-Datum YY-MM-DD (auto bei jedem Assemblieren)
 %substr TIM __?TIME?__,1,5      ; Build-Uhrzeit HH:MM
@@ -30,6 +31,9 @@ btnoff   db 3,3,3,3,3,3,4,4,4,4,4,4,4,4
 btnmask  db 0x10,0x40,0x80,0x20,0x08,0x01,0x40,0x20,0x10,0x80,0x04,0x01,0x08,0x02
 pseq     db 0xE1,0x1D,0x45,0xE1,0x9D,0xC5   ; PAUSE-Sequenz
 modtab   db 0x1D,0x38,0x2A                  ; Strg, Alt, Shift (links)
+qhead    db 0                               ; Warteschlange fuer Scancodes
+qtail    db 0
+queue    times QMASK+1 db 0
 
 ; ---------------- resident INT 2Fh (multiplex) ----------------
 int2f:
@@ -68,6 +72,7 @@ isr70:
     mov al,ah
     out 0x71,al
 .pie:
+    call sendq               ; Warteschlange: 1 Byte pro Tick (ca. 1 ms)
     dec byte [cs:rtcdiv]
     jnz .out
     mov byte [cs:rtcdiv],RTCDIV
@@ -108,20 +113,37 @@ dopoll:
     mov al,[cnt+si]
     cmp al,dl
     je .cont
+    mov al,[qhead]           ; freier Platz in der Warteschlange
+    sub al,[qtail]
+    dec al
+    and al,QMASK
+    cmp al,6                 ; laengste Folge (PAUSE) = 6 Bytes
+    jb .cont                 ; kein Platz -> beim naechsten Tick
+    mov [cnt+si],dl
     or dl,dl
     jz .brk
     call sendmake
-    jc .cont
-    mov [cnt+si],dl
     jmp .cont
 .brk:
     call sendbreak
-    jc .cont
-    mov [cnt+si],dl
 .cont:
     inc si
     cmp si,14
     jne .bl
+    cmp byte [usertc],0      ; RTC-Modus: isr70 sendet 1 Byte pro Tick (sendq)
+    jne .bad
+.dq:                         ; INT-8-Modus: Warteschlange wie bisher direkt senden
+    mov bl,[qhead]
+    cmp bl,[qtail]
+    je .bad
+    xor bh,bh
+    mov al,[queue+bx]
+    call kbcbyte
+    jc .bad                  ; Byte bleibt in der Warteschlange
+    inc bl
+    and bl,QMASK
+    mov [qhead],bl
+    jmp .dq
 .bad:
     mov byte [busy],0
 .out:
@@ -146,36 +168,26 @@ sendmake:
     jnz .pause
     xor bh,bh            ; zuerst Strg/Alt/Shift druecken (Kombination auf einer Taste)
     call sendmods
-    jc .fail
     test ah,1
     jz .noe
     push ax
     mov al,0xE0
-    call kbcbyte
+    call putq
     pop ax
-    jc .fail
 .noe:
-    call kbcbyte
-    jc .fail
+    call putq
     jmp .ok
 .pause:                  ; PAUSE: E1 1D 45 E1 9D C5 beim Druecken, kein Break
     xor bx,bx
 .pl:
     mov al,[pseq+bx]
-    call kbcbyte
-    jc .fail
+    call putq
     inc bx
     cmp bx,6
     jb .pl
 .ok:
     pop bx
     pop ax
-    clc
-    ret
-.fail:
-    pop bx
-    pop ax
-    stc
     ret
 
 sendbreak:
@@ -192,29 +204,20 @@ sendbreak:
     jz .noe
     push ax
     mov al,0xE0
-    call kbcbyte
+    call putq
     pop ax
-    jc .fail
 .noe:
     or al,0x80
-    call kbcbyte
-    jc .fail
+    call putq
     mov bh,0x80          ; danach Strg/Alt/Shift loslassen
     call sendmods
-    jc .fail
 .ok:
     pop bx
     pop ax
-    clc
-    ret
-.fail:
-    pop bx
-    pop ax
-    stc
     ret
 
 sendmods:                ; ah = Keymap-Highbyte (Bit2 Strg, Bit3 Alt, Bit4 Shift),
-    push ax              ; bh = 0 Make / 0x80 Break. CF=1 Abbruch
+    push ax              ; bh = 0 Make / 0x80 Break
     push cx
     push si
     mov cl,ah
@@ -225,17 +228,57 @@ sendmods:                ; ah = Keymap-Highbyte (Bit2 Strg, Bit3 Alt, Bit4 Shift
     jz .n
     mov al,[modtab+si]
     or al,bh
-    call kbcbyte
-    jc .x
+    call putq
 .n:
     inc si
     shl ch,1
     cmp ch,0x20
     jb .l
-    clc
-.x:
     pop si
     pop cx
+    pop ax
+    ret
+
+putq:                    ; al -> Warteschlange (Platz wurde in dopoll geprueft)
+    push bx
+    mov bl,[qtail]
+    xor bh,bh
+    mov [queue+bx],al
+    inc bl
+    and bl,QMASK
+    mov [qtail],bl       ; erst danach weiterschalten (sendq liest parallel)
+    pop bx
+    ret
+
+sendq:                   ; RTC-Modus, jeder Tick: hoechstens 1 Byte senden, nie warten.
+    push ax              ; Das naechste Byte geht erst raus, wenn das Spiel das
+    push bx              ; vorige abgeholt hat (OBF leer).
+    push cx
+    mov bl,[cs:qhead]
+    cmp bl,[cs:qtail]
+    je .x
+    in al,0x64
+    test al,3            ; OBF voll oder IBF belegt -> naechster Tick
+    jnz .x
+    mov al,0xD2
+    out 0x64,al
+    mov cx,0x0400
+.w:
+    in al,0x64
+    test al,2
+    jz .o
+    loop .w
+    jmp .x
+.o:
+    xor bh,bh
+    mov al,[cs:queue+bx]
+    out 0x60,al
+    inc bl
+    and bl,QMASK
+    mov [cs:qhead],bl
+.x:
+    pop cx
+    pop bx
     pop ax
     ret
 

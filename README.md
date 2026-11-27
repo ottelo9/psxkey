@@ -290,7 +290,8 @@ on to the previous handler. Some games install their own INT 8 handler, reprogra
 and never call the old one — then PSXKEY never runs and the pad does nothing in that game.
 Known examples are the East Point Software ports **Project X** and **The Lion King**: both
 sync the timer to the VGA retrace, send their own EOI and return with `iret`. **Super Street
-Fighter II Turbo** (v1.5) also needs `timer = rtc`.
+Fighter II Turbo** (v1.5) also needs `timer = rtc`. This also works with HDPMI32I + SBEMU
+(Sound Blaster emulation) loaded.
 
 ```ini
 timer = rtc
@@ -440,19 +441,24 @@ resident footprint stays at 466 bytes / 30 paragraphs.
 - **Never overwrite an unread byte.** `kbcbyte` refuses to send (CF = 1, retried next tick)
   while the output buffer still holds an unread keyboard byte (port `0x64` bit0 set, bit5
   clear) — that byte may also be a real keystroke.
-- **Self-healing.** `cnt[]` (the last state actually sent) is only updated when `kbcbyte`
-  succeeded (CF = 0). On timeout, `cnt` is left unchanged so the next tick retries. This
-  prevents stuck keys / a character spinning forever.
+- **Scancode queue.** `sendmake`/`sendbreak` put the bytes into a 32-byte queue (`putq`);
+  a button change is only taken (`cnt[]` updated) when there is room for the longest
+  sequence (6 bytes), otherwise it is retried next tick. With INT 8 the queue is sent right
+  away with `kbcbyte`; a byte that cannot be sent stays in the queue (no more repeated `E0`
+  or modifier bytes on retry).
+- **`timer = rtc`: one byte per RTC tick, never wait.** `isr70` calls `sendq` on every
+  1024 Hz tick: if the output buffer is empty it sends one byte and returns at once; the
+  next byte follows once the game has read the previous one. Before, the injection waited
+  inside the RTC interrupt with `sti` for each byte to be read. With HDPMI32I + SBEMU loaded
+  that made The Lion King and Project X miss the keys and the BIOS beep (keyboard buffer
+  full), presumably because IRQ 1 then ran inside the reflected IRQ 8 and ended up in the
+  BIOS instead of the game.
 - **Arrow keys** are sent as **E0-extended** codes (real cursor keys). If a game needs the
   numpad codes instead, change the arrows' ext flag in `nvtab` from `1` to `0`.
 - ASCII values are irrelevant (INT 9 uses scancodes); letters are lower case.
 
 ## Known issues
 
-- **HDPMI32I + SBEMU:** with both loaded, games that need `timer = rtc` (The Lion King,
-  Project X) don't get the pad's keys and the PC speaker beeps (BIOS keyboard buffer full).
-  Games without `timer = rtc` (e.g. Bust a Move) work. HIMEM alone or JEMMEX without SBEMU
-  are fine. Not fixed yet.
 - **Pad not detected after restarting from Windows:** on some boards Windows leaves the
   parallel port in a strange state (once the PC even hung with beeps before POST). Switch
   the PC off and on again (cold boot); after that, and after reboots from DOS, the pad was
@@ -471,7 +477,8 @@ resident footprint stays at 466 bytes / 30 paragraphs.
 
 - `isr8` / `isr70` — timer ISR (INT 8) or RTC ISR (INT 70h, `timer = rtc`), both call
   `dopoll`: poll + edge detect + make/break.
-- `kbcbyte` — the `0xD2` injection (timeout + carry flag + OBF wait).
+- `kbcbyte` — the `0xD2` injection (timeout + carry flag + OBF wait), used with INT 8.
+- `putq` / `sendq` — scancode queue; `sendq` sends one byte per RTC tick (`timer = rtc`).
 - `pollpad` / `xchg` — the bit-bang transfer.
 - `parse` / `mapval` / `matchbtn` / `parsehex` — INI parsing.
 - `int2f` — INT 2Fh multiplex handler.
@@ -484,9 +491,10 @@ resident footprint stays at 466 bytes / 30 paragraphs.
 - `testmode` / `gotoxy` — the `/T` live button display.
 - Everything before the `install` label is resident; the TSR keep size is the `install`
   offset in paragraphs. Everything added for detection and testing sits in the transient
-  part, so the resident footprint is 632 bytes / 40 paragraphs (466 originally, +3 for the
+  part, so the resident footprint is 773 bytes / 49 paragraphs (466 originally, +3 for the
   variable delay counter, +57 for the RTC handler, +7 for discarding faulty responses,
-  +10 for the INT 8 chain order and the unread-byte check, +35 for the Pause key, +54 for key combinations on one button).
+  +10 for the INT 8 chain order and the unread-byte check, +35 for the Pause key, +54 for
+  key combinations on one button, +141 for the scancode queue).
 
 ## Author & links
 
